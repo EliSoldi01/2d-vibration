@@ -91,6 +91,7 @@ def plot_regression(
     y_col,
     title,
     ylabel,
+    xlabel,
     save_path
 ):
     if len(df) < 2:
@@ -119,8 +120,11 @@ def plot_regression(
         label=f"y = {coeffs[0]:.2f}x + {coeffs[1]:.2f}\n$R^2$ = {r2:.2f}"
     )
 
-    plt.xlabel("Duration (s)")
+    plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+
+    if xlabel == "Vividness":
+        plt.xlim(0, 10)
 
     if ylabel == "Angle (deg)":
         plt.ylim(50, 130)
@@ -151,6 +155,8 @@ forearm_df = load_forearm_data(
 
 df = merge_forearm(main_df, forearm_df)
 
+print("1) Data loaded")
+
 # -------------------------
 # USER SELECTION
 # -------------------------
@@ -168,6 +174,8 @@ df = df[
     df["subject"].isin(selected_subjects)
 ]
 
+print("2) User selection applied. \nSelected patterns:", selected_patterns, "\nSelected subjects:", selected_subjects)
+
 # -------------------------
 # GEOMETRY
 # -------------------------
@@ -181,6 +189,8 @@ df["angle_deg"] = df.apply(
     axis=1
 )
 
+print("3) Geometry computed")
+
 # -------------------------
 # CLEAN
 # -------------------------
@@ -190,6 +200,7 @@ df = df.dropna(subset=["duration"]).reset_index(drop=True)
 # ANALYSIS & PLOTS
 # ============================================================
 
+print("4) Starting regression analysis and plotting...")
 for pattern in selected_patterns:
 
     df_pat = df[df["pattern"] == pattern]
@@ -199,6 +210,7 @@ for pattern in selected_patterns:
     # ==========================
     for subject in selected_subjects:
 
+        print(f"Processing pattern {pattern}, subject {subject}...")
         df_sub = df_pat[df_pat["subject"] == subject]
 
         base_dir = os.path.join(OUTPUT_FOLDER, subject)
@@ -213,23 +225,42 @@ for pattern in selected_patterns:
 
             df_rep = df_sub[df_sub["rep"] == rep]
 
+            # Angle vs Duration
             plot_regression(
                 df_rep.dropna(subset=["angle_deg"]),
                 "duration",
                 "angle_deg",
                 f"{subject} – {pattern} – rep {rep} – Angle",
                 "Angle (deg)",
+                "Duration (s)",
                 os.path.join(single_dir, f"{pattern}_rep{rep}_angle.png")
             )
+            print(f"   Plotted angle vs duration for rep {rep}")
 
+            # Vividness vs Duration
             plot_regression(
                 df_rep.dropna(subset=["vividness"]),
                 "duration",
                 "vividness",
                 f"{subject} – {pattern} – rep {rep} – Vividness",
                 "Vividness",
+                "Duration (s)",
                 os.path.join(single_dir, f"{pattern}_rep{rep}_vividness.png")
             )
+            print(f"   Plotted vividness vs duration for rep {rep}")
+
+            # Angle vs Vividness
+            plot_regression(
+                df_rep.dropna(subset=["vividness"]),
+                "vividness",
+                "angle_deg",
+                f"{subject} – {pattern} – rep {rep} – Angle vs Vividness",
+                "Angle (deg)",
+                "Vividness",
+                os.path.join(single_dir, f"{pattern}_rep{rep}_angle_vs_vividness.png")
+            )
+            print(f"   Plotted angle vs vividness for rep {rep}")
+
 
         # ---------- MEAN PER SUBJECT ----------
         df_mean_sub = (
@@ -241,23 +272,41 @@ for pattern in selected_patterns:
             })
         )
 
+        # Angle vs Duration
         plot_regression(
             df_mean_sub.dropna(subset=["angle_deg"]),
             "duration",
             "angle_deg",
             f"{subject} – {pattern} – Mean reps – Angle",
             "Angle (deg)",
+            "Duration (s)",
             os.path.join(mean_dir, f"{pattern}_mean_angle.png")
         )
+        print(f"   Plotted mean angle vs duration for subject {subject}")
 
+        # Vividness vs Duration
         plot_regression(
             df_mean_sub.dropna(subset=["vividness"]),
             "duration",
             "vividness",
             f"{subject} – {pattern} – Mean reps – Vividness",
             "Vividness",
+            "Duration (s)",
             os.path.join(mean_dir, f"{pattern}_mean_vividness.png")
         )
+        print(f"   Plotted mean vividness vs duration for subject {subject}")
+
+        # Angle vs Vividness
+        plot_regression(
+            df_mean_sub.dropna(subset=["vividness"]),
+            "vividness",
+            "angle_deg",
+            f"{subject} – {pattern} – Mean reps – Angle vs Vividness",
+            "Angle (deg)",
+            "Vividness",
+            os.path.join(mean_dir, f"{pattern}_mean_angle_vs_vividness.png")
+        )
+        print(f"   Plotted mean angle vs vividness for subject {subject}")
 
     # ==========================
     # ALL SUBJECTS
@@ -281,23 +330,41 @@ for pattern in selected_patterns:
             })
         )
 
+        # Angle vs Duration
         plot_regression(
             df_rep_all.dropna(subset=["angle_deg"]),
             "duration",
             "angle_deg",
             f"ALL – {pattern} – rep {rep} – Angle",
             "Angle (deg)",
+            "Duration (s)",
             os.path.join(single_all, f"{pattern}_rep{rep}_angle.png")
         )
+        print(f"Plotted ALL subjects angle vs duration for rep {rep}")
 
+        # Vividness vs Duration
         plot_regression(
             df_rep_all.dropna(subset=["vividness"]),
             "duration",
             "vividness",
             f"ALL – {pattern} – rep {rep} – Vividness",
             "Vividness",
+            "Duration (s)",
             os.path.join(single_all, f"{pattern}_rep{rep}_vividness.png")
         )
+        print(f"Plotted ALL subjects vividness vs duration for rep {rep}")
+
+        # Vividness vs Angle
+        plot_regression(
+            df_rep_all.dropna(subset=["vividness"]),
+            "vividness",
+            "angle_deg",
+            f"ALL – {pattern} – rep {rep} – Angle vs Vividness",
+            "Angle (deg)",
+            "Vividness",
+            os.path.join(single_all, f"{pattern}_rep{rep}_angle_vs_vividness.png")
+        )
+        print(f"Plotted ALL subjects angle vs vividness for rep {rep}")
 
     # ---------- MEAN TOTALE ----------
     df_mean_all = (
@@ -309,20 +376,40 @@ for pattern in selected_patterns:
         })
     )
 
+    # Angle vs Duration
     plot_regression(
         df_mean_all.dropna(subset=["angle_deg"]),
         "duration",
         "angle_deg",
         f"ALL – {pattern} – Mean – Angle",
         "Angle (deg)",
+        "Duration (s)",
         os.path.join(mean_all, f"{pattern}_mean_angle.png")
     )
+    print(f"Plotted ALL subjects mean angle vs duration")
 
+    # Vividness vs Duration
     plot_regression(
         df_mean_all.dropna(subset=["vividness"]),
         "duration",
         "vividness",
         f"ALL – {pattern} – Mean – Vividness",
         "Vividness",
+        "Duration (s)",
         os.path.join(mean_all, f"{pattern}_mean_vividness.png")
     )
+    print(f"Plotted ALL subjects mean vividness vs duration")
+
+    # Vividness vs Angle
+    plot_regression(
+        df_mean_all.dropna(subset=["vividness"]),
+        "vividness",
+        "angle_deg",
+        f"ALL – {pattern} – Mean – Angle vs Vividness",
+        "Angle (deg)",
+        "Vividness",
+        os.path.join(mean_all, f"{pattern}_mean_angle_vs_vividness.png")
+    )
+    print(f"Plotted ALL subjects mean angle vs vividness")
+
+print("-> Regression analysis and plotting completed.")
