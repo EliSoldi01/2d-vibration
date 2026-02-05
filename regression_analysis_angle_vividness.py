@@ -179,7 +179,7 @@ print("1) Data loaded")
 # -------------------------
 # USER SELECTION
 # -------------------------
-do_regression_and_plots = False
+do_regression_and_plots = True
 do_std_normalized_excel = True
 
 selected_patterns = ["100_000", "000_100"] # None for all patterns, or list of patterns (e.g., ["100_000", "000_100"])
@@ -237,8 +237,8 @@ if do_regression_and_plots:
             df_sub = df_pat[df_pat["subject"] == subject]
 
             base_dir = os.path.join(OUTPUT_FOLDER, subject)
-            single_dir = os.path.join(base_dir, "Single-reps")
-            mean_dir = os.path.join(base_dir, "Mean-per-subject")
+            single_dir = os.path.join(base_dir, "Single-reps", pattern)
+            mean_dir = os.path.join(base_dir, "Mean-per-subject", pattern)
 
             ensure_dir(single_dir)
             ensure_dir(mean_dir)
