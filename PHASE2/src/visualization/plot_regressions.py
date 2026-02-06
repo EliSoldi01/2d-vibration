@@ -6,10 +6,15 @@ from pathlib import Path
 # ============================================================
 # LINEAR REGRESSION PLOT
 # ============================================================
-def plot_regression(df, x_col, y_col, title, ylabel, xlabel, save_path):
+def plot_regression(df, x_col, y_col, title, ylabel, xlabel, save_path, protocol=None):
     if len(df) < 2:
         print(f"⚠️ Not enough points for {title}")
         return
+
+    if protocol is not None:
+        vividness_values = protocol["scales"]["vividness"]["values"]
+    else:
+        vividness_values = [0,10]
 
     X = df[x_col].values
     y = df[y_col].values
@@ -37,12 +42,13 @@ def plot_regression(df, x_col, y_col, title, ylabel, xlabel, save_path):
     plt.ylabel(ylabel)
 
     if xlabel.lower() == "vividness":
-        plt.xlim(0, 10)
+        plt.xlim(vividness_values[0], vividness_values[-1])
 
     if ylabel.lower().startswith("angle"):
         plt.ylim(50, 150)
+
     elif ylabel.lower() == "vividness":
-        plt.ylim(0, 10)
+        plt.ylim(vividness_values[0], vividness_values[-1])
 
     plt.title(title)
     plt.legend()
@@ -57,7 +63,7 @@ def plot_regression(df, x_col, y_col, title, ylabel, xlabel, save_path):
 # ============================================================
 # PLOT PER SOGGETTO E PATTERN
 # ============================================================
-def plot_subject_pattern(subj_df, subject, pattern, per_reps_plot = True, mean_plot = True, output_folder="Results/regressions", x_col="duration", x_label="Duration (s)"):
+def plot_subject_pattern(subj_df, subject, pattern, protocol, per_reps_plot = True, mean_plot = True, output_folder="Results/regressions", x_col="duration", x_label="Duration (s)"):
     """
     Plot regressions per subject and pattern:
         - Single reps
@@ -92,7 +98,8 @@ def plot_subject_pattern(subj_df, subject, pattern, per_reps_plot = True, mean_p
                 title=f"{subject} – {pattern} – rep {rep} – Vividness",
                 ylabel="Vividness",
                 xlabel=x_label,
-                save_path=os.path.join(rep_dir, pattern, f"rep{rep}_vividness.png")
+                save_path=os.path.join(rep_dir, pattern, f"rep{rep}_vividness.png"),
+                protocol=protocol
             )
 
             # Angle vs Vividness
@@ -103,7 +110,8 @@ def plot_subject_pattern(subj_df, subject, pattern, per_reps_plot = True, mean_p
                 title=f"{subject} – {pattern} – rep {rep} – Angle vs Vividness",
                 ylabel="Angle (deg)",
                 xlabel=x_label,
-                save_path=os.path.join(rep_dir, pattern, f"rep{rep}_angle_vs_vividness.png")
+                save_path=os.path.join(rep_dir, pattern, f"rep{rep}_angle_vs_vividness.png"),
+                protocol=protocol
             )
     
     if mean_plot:
@@ -135,7 +143,8 @@ def plot_subject_pattern(subj_df, subject, pattern, per_reps_plot = True, mean_p
             title=f"{subject} – {pattern} – Mean reps – Vividness",
             ylabel="Vividness",
             xlabel=x_label,
-            save_path=os.path.join(mean_dir, pattern, f"mean_vividness.png")
+            save_path=os.path.join(mean_dir, pattern, f"mean_vividness.png"),
+            protocol=protocol
         )
 
         plot_regression(
@@ -145,14 +154,15 @@ def plot_subject_pattern(subj_df, subject, pattern, per_reps_plot = True, mean_p
             title=f"{subject} – {pattern} – Mean reps – Angle vs Vividness",
             ylabel="Angle (deg)",
             xlabel="Vividness",
-            save_path=os.path.join(mean_dir, pattern, f"mean_angle_vs_vividness.png")
+            save_path=os.path.join(mean_dir, pattern, f"mean_angle_vs_vividness.png"),
+            protocol=protocol
         )
 
 
 # ============================================================
 # PLOT MEDIA SU TUTTI I SOGGETTI
 # ============================================================
-def plot_group_average(df, patterns_list, per_reps_plot = True, mean_plot = True, output_folder="Results/regressions", x_col="duration", x_label="Duration (s)"):
+def plot_group_average(df, patterns_list, protocol, per_reps_plot = True, mean_plot = True, output_folder="Results/regressions", x_col="duration", x_label="Duration (s)"):
     """
     Plot regressions mediati su tutti i soggetti:
         - Per rep
@@ -198,7 +208,8 @@ def plot_group_average(df, patterns_list, per_reps_plot = True, mean_plot = True
                     title=f"ALL – {pattern} – rep {rep} – Vividness",
                     ylabel="Vividness",
                     xlabel=x_label,
-                    save_path=os.path.join(rep_dir, pattern, f"rep{rep}_vividness.png")
+                    save_path=os.path.join(rep_dir, pattern, f"rep{rep}_vividness.png"),
+                    protocol=protocol
                 )
 
                 # Angle vs Vividness
@@ -209,7 +220,8 @@ def plot_group_average(df, patterns_list, per_reps_plot = True, mean_plot = True
                     title=f"ALL – {pattern} – rep {rep} – Angle vs Vividness",
                     ylabel="Angle (deg)",
                     xlabel="Vividness",
-                    save_path=os.path.join(rep_dir, pattern, f"rep{rep}_angle_vs_vividness.png")
+                    save_path=os.path.join(rep_dir, pattern, f"rep{rep}_angle_vs_vividness.png"),
+                    protocol=protocol
                 )
 
         if mean_plot:
@@ -238,7 +250,8 @@ def plot_group_average(df, patterns_list, per_reps_plot = True, mean_plot = True
                 title=f"ALL – {pattern} – Mean – Vividness",
                 ylabel="Vividness",
                 xlabel=x_label,
-                save_path=os.path.join(mean_all, pattern, f"mean_vividness.png")
+                save_path=os.path.join(mean_all, pattern, f"mean_vividness.png"),
+                protocol=protocol
             )
 
             # Angle vs Vividness
@@ -249,5 +262,6 @@ def plot_group_average(df, patterns_list, per_reps_plot = True, mean_plot = True
                 title=f"ALL – {pattern} – Mean – Angle vs Vividness",
                 ylabel="Angle (deg)",
                 xlabel="Vividness",
-                save_path=os.path.join(mean_all, pattern, f"mean_angle_vs_vividness.png")
+                save_path=os.path.join(mean_all, pattern, f"mean_angle_vs_vividness.png"),
+                protocol=protocol
             )

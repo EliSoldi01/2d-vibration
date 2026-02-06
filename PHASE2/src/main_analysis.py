@@ -31,8 +31,8 @@ subjects_to_process = ["S01", "S04"]
 pattern_to_process = ["100_000", "000_100"]
 
 do_heatmaps = False
-do_regressions = False
-do_regression_original_durations = False
+do_regressions = True
+do_regression_original_durations = True
 do_regression_ordered_durations = False
 do_std_excel = False
 recalc_subject = False
@@ -53,9 +53,9 @@ subject_info = load_data.load_data_file(
 print("Data loaded.")
 
 # Output paths
-OUTPUT_FOLDER = "Results_"
-OUTPUT_FOLDER_REG = os.path.join(OUTPUT_FOLDER, protocol["name"], "regressions")
-OUTPUT_FOLDER_STD = os.path.join(OUTPUT_FOLDER, protocol["name"], "stats")
+OUTPUT_FOLDER = "Results_"+protocol["name"]
+OUTPUT_FOLDER_REG = os.path.join(OUTPUT_FOLDER, "regressions")
+OUTPUT_FOLDER_STD = os.path.join(OUTPUT_FOLDER, "stats")
 
 # Crea tutte le cartelle necessarie
 for folder in [OUTPUT_FOLDER, OUTPUT_FOLDER_REG, OUTPUT_FOLDER_STD]:
@@ -106,8 +106,8 @@ if do_regressions:
 
             if do_regression_ordered_durations:
                 # Durations in ascending order
-                plot_regression.plot_subject_pattern(subj_df, subj, pat, output_folder=os.path.join(OUTPUT_FOLDER_REG, "duration"))
-                plot_regression.plot_group_average(df, patterns_list, output_folder=os.path.join(OUTPUT_FOLDER_REG, "duration"))
+                plot_regression.plot_subject_pattern(subj_df, subj, pat, protocol, output_folder=os.path.join(OUTPUT_FOLDER_REG, "duration"))
+                plot_regression.plot_group_average(df, patterns_list, protocol, output_folder=os.path.join(OUTPUT_FOLDER_REG, "duration"))
 
             if do_regression_original_durations:
                 # Durations in presentation order
@@ -115,6 +115,7 @@ if do_regressions:
                     subj_df,
                     subj,
                     pat,
+                    protocol,
                     per_reps_plot=False,
                     output_folder=os.path.join(OUTPUT_FOLDER_REG, "block_order"),
                     x_col="presentation_order",
@@ -123,6 +124,7 @@ if do_regressions:
                 plot_regression.plot_group_average(
                     df,
                     patterns_list,
+                    protocol,
                     per_reps_plot=False,
                     output_folder=os.path.join(OUTPUT_FOLDER_REG, "block_order"),
                     x_col="presentation_order",
