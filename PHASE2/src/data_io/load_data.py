@@ -53,7 +53,7 @@ def merge_subject_data(df_main, df_subject):
     """
     return pd.merge(
         df_main,
-        df_subject[["subject", "forearm_cm", "forearm_angle_deg"]],
+        df_subject[["subject", "forearm_cm", "forearm_angle_deg", "block_order"]],
         on="subject",
         how="left"
     )

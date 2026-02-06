@@ -96,7 +96,9 @@
 
   "grid": {
     "x": 21,
-    "y": 9
+    "y": 9,
+    "cell_size_cm": 4,
+    "start_cell": [11,5]
   },
 
   "scales": {
