@@ -1,0 +1,110 @@
+{
+  "name": "Protocol1",
+  "blocks": {
+    "durations": [1, 2, 3, 4],
+    "order": "randomized"
+  },
+
+  "patterns": {
+    "sequence_length": 3,
+    "repetitions": 3,
+    "order": "fixed",
+
+    "definitions": [
+      {
+        "id": "P01",
+        "biceps": [1, 0, 0],
+        "triceps": [0, 0, 0],
+        "text": "100_000",
+        "effect": "extension",
+        "code": "E1F0",
+        "color": "#ffb716",
+        "legend_position": 3
+      },
+      {
+        "id": "P02",
+        "biceps": [0, 0, 0],
+        "triceps": [1, 0, 0],
+        "text": "000_100",
+        "effect": "flexion",
+        "code": "E0F1",
+        "color": "#85e0fc",
+        "legend_position": 6
+      },
+      {
+        "id": "P03",
+        "biceps": [0, 1, 1],
+        "triceps": [1, 0, 0],
+        "text": "011_100",
+        "effect": "extension",
+        "code": "F1E2",
+        "color": "#b36800",
+        "legend_position": 1
+      },
+      {
+        "id": "P04",
+        "biceps": [1, 0, 0],
+        "triceps": [0, 1, 1],
+        "text": "100_011",
+        "effect": "flexion",
+        "code": "E1F2",
+        "color": "#194a7a",
+        "legend_position": 8
+      },
+      {
+        "id": "P05",
+        "biceps": [1, 0, 1],
+        "triceps": [0, 0, 0],
+        "text": "101_000",
+        "effect": "backforth",
+        "code": "E1E1",
+        "color": "#ff8711",
+        "legend_position": 2
+      },
+      {
+        "id": "P06",
+        "biceps": [0, 1, 0],
+        "triceps": [0, 1, 0],
+        "text": "010_010",
+        "effect": "noise",
+        "code": "E0F0",
+        "color": "#c9c9c9",
+        "legend_position": 5
+      },
+      {
+        "id": "P07",
+        "biceps": [0, 0, 0],
+        "triceps": [1, 0, 1],
+        "text": "000_101",
+        "effect": "backforth",
+        "code": "F1F1",
+        "color": "#057dcd",
+        "legend_position": 7
+      },
+      {
+        "id": "P08",
+        "biceps": [1, 0, 0],
+        "triceps": [1, 0, 0],
+        "text": "100_100",
+        "effect": "noise",
+        "code": "E0F0",
+        "color": "#c9c9c9",
+        "legend_position": 4
+      }
+    ]
+  },
+
+  "grid": {
+    "x": 21,
+    "y": 9,
+    "cell_size_cm": 4,
+    "start_cell": [11,5]
+  },
+
+  "scales": {
+    "vividness": {
+      "values": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "type": "ordinal"
+    }
+  }
+}
