@@ -62,8 +62,6 @@ OUTPUT_FOLDER_REG = os.path.join(OUTPUT_FOLDER, "regressions")
 OUTPUT_FOLDER_STD = os.path.join(OUTPUT_FOLDER, "stats")
 subject_output_folder = os.path.join(OUTPUT_FOLDER, "subject_models")
 global_output_path = os.path.join(OUTPUT_FOLDER, "Global_Model_Parameters.xlsx")
-output_fit_file = os.path.join(OUTPUT_FOLDER, "Group_Sigmoid_Fit.xlsx")
-
 
 # Crea tutte le cartelle necessarie
 for folder in [OUTPUT_FOLDER, OUTPUT_FOLDER_REG, OUTPUT_FOLDER_STD]:
