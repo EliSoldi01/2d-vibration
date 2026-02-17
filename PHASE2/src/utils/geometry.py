@@ -46,7 +46,7 @@ def compute_angle(start_cell, index_cell, forearm_cm, forearm_angle_deg):
     idx_cm = cell_to_cm(*index_cell)
     current_vec = idx_cm - elbow_cm
 
-    return 90 + signed_angle(baseline_vec, current_vec)
+    return signed_angle(baseline_vec, current_vec)
 
 def add_angle_column(df, start_cell):
     """

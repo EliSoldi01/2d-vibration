@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 import os
 from pathlib import Path
@@ -19,8 +20,15 @@ def plot_regression(df, x_col, y_col, title, ylabel, xlabel, save_path, protocol
     X = df[x_col].values
     y = df[y_col].values
 
-    coeffs = np.polyfit(X, y, 1)
-    y_fit = np.polyval(coeffs, X)
+    # Regression forced through origin
+    denom = np.sum(X**2)
+
+    if denom == 0:
+        print(f"⚠️ Degenerate regression for {title}")
+        return
+
+    slope = np.sum(X * y) / denom
+    y_fit = slope * X
 
     ss_res = np.sum((y - y_fit) ** 2)
     ss_tot = np.sum((y - np.mean(y)) ** 2)
@@ -30,13 +38,33 @@ def plot_regression(df, x_col, y_col, title, ylabel, xlabel, save_path, protocol
     plt.scatter(X, y, alpha=0.8)
 
     x_line = np.linspace(X.min(), X.max(), 100)
-    y_line = coeffs[0] * x_line + coeffs[1]
+    y_line = slope * x_line
 
     plt.plot(
         x_line, y_line,
         color="red", linewidth=2,
-        label=f"y = {coeffs[0]:.2f}x + {coeffs[1]:.2f}\n$R^2$ = {r2:.2f}"
+        label=f"y = {slope:.2f}x\n$R^2$ = {r2:.2f}"
     )
+
+
+    ax = plt.gca()
+
+    if x_col == "presentation_order":
+        # 1. Prendiamo i valori unici di ordine e durata presenti nel df
+        # Li ordiniamo per presentation_order per farli coincidere con l'asse X
+        mapping = df[["presentation_order", "duration"]].drop_duplicates().sort_values("presentation_order")
+        
+        # Impostiamo i ticks sulle posizioni dell'ordine (interi)
+        ax.set_xticks(mapping["presentation_order"].values)
+        # Sostituiamo le etichette con i valori della durata
+        ax.set_xticklabels(mapping["duration"].values)
+    else:
+        # Forza i ticks a essere interi per duration o vividness
+        ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+
+    # Forza i ticks interi anche per l'asse Y se è vividness
+    if y_col == "vividness":
+        ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
@@ -45,7 +73,7 @@ def plot_regression(df, x_col, y_col, title, ylabel, xlabel, save_path, protocol
         plt.xlim(vividness_values[0], vividness_values[-1])
 
     if ylabel.lower().startswith("angle"):
-        plt.ylim(50, 150)
+        plt.ylim(-60, +60)
 
     elif ylabel.lower() == "vividness":
         plt.ylim(vividness_values[0], vividness_values[-1])
@@ -120,7 +148,8 @@ def plot_subject_pattern(subj_df, subject, pattern, protocol, per_reps_plot = Tr
         df_mean = df_sub.groupby("duration", as_index=False).agg({
             "angle_deg": "mean",
             "vividness": "mean",
-            "presentation_order": "first"
+            "presentation_order": "first",
+            "duration": "first"
         })
 
         mean_dir = os.path.join(output_folder, subject, "Mean-per-subject")
@@ -183,7 +212,8 @@ def plot_group_average(df, patterns_list, protocol, per_reps_plot = True, mean_p
                 df_rep_all = df_pat[df_pat["rep"] == rep].groupby("duration", as_index=False).agg({
                     "angle_deg": "mean",
                     "vividness": "mean",
-                    "presentation_order": "first"
+                    "presentation_order": "first",
+                    "duration": "first"
                 })
 
                 rep_dir = os.path.join(single_all)
@@ -228,7 +258,9 @@ def plot_group_average(df, patterns_list, protocol, per_reps_plot = True, mean_p
             # Media totale
             df_mean_all = df_pat.groupby(x_col, as_index=False).agg({
                 "angle_deg": "mean",
-                "vividness": "mean"
+                "vividness": "mean",
+                "presentation_order": "first",
+                "duration": "first"
             })
 
             # Angle vs Duration
@@ -265,3 +297,121 @@ def plot_group_average(df, patterns_list, protocol, per_reps_plot = True, mean_p
                 save_path=os.path.join(mean_all, pattern, f"mean_angle_vs_vividness.png"),
                 protocol=protocol
             )
+
+# ============================================================
+# PLOT MEDIA SU TUTTI I SOGGETTI
+# ============================================================
+def plot_group_average_2(df, patterns_list, protocol, per_reps_plot = True, mean_plot = True, output_folder="Results/regressions", x_col="duration", x_label="Duration (s)"):
+    """
+    Plot regressions mediati su tutti i soggetti:
+        - Per rep
+        - Media totale
+    """
+    all_dir = os.path.join(output_folder, "ALL_SUBJECTS")
+    single_all = os.path.join(all_dir, "Single-reps")
+    mean_all = os.path.join(all_dir, "Mean")
+    os.makedirs(single_all, exist_ok=True)
+    os.makedirs(mean_all, exist_ok=True)
+
+    for pattern in patterns_list:
+        df_pat = df[df["pattern_pair"] == pattern]
+
+        # Per rep
+        if per_reps_plot:
+            for rep in sorted(df_pat["rep"].unique()):
+                df_rep_all = df_pat[df_pat["rep"] == rep].groupby(["duration", "rep"], as_index=False).agg({
+                    "angle_deg": "mean",
+                    "vividness": "mean",
+                    "presentation_order": "first",
+                    "duration": "first"
+                })
+
+                rep_dir = os.path.join(single_all, f"rep_{rep}")
+                os.makedirs(rep_dir, exist_ok=True)
+
+                # Angle vs Duration
+                plot_regression(
+                    df_rep_all.dropna(subset=["angle_deg"]),
+                    x_col=x_col,
+                    y_col="angle_deg",
+                    title=f"ALL – {pattern} – rep {rep} – Angle",
+                    ylabel="Angle (deg)",
+                    xlabel=x_label,
+                    save_path=os.path.join(rep_dir, pattern, f"rep{rep}_angle.png")
+                )
+
+                # Vividness vs Duration
+                plot_regression(
+                    df_rep_all.dropna(subset=["vividness"]),
+                    x_col=x_col,
+                    y_col="vividness",
+                    title=f"ALL – {pattern} – rep {rep} – Vividness",
+                    ylabel="Vividness",
+                    xlabel=x_label,
+                    save_path=os.path.join(rep_dir, pattern, f"rep{rep}_vividness.png"),
+                    protocol=protocol
+                )
+
+                # Angle vs Vividness
+                plot_regression(
+                    df_rep_all.dropna(subset=["vividness"]),
+                    x_col="vividness",
+                    y_col="angle_deg",
+                    title=f"ALL – {pattern} – rep {rep} – Angle vs Vividness",
+                    ylabel="Angle (deg)",
+                    xlabel="Vividness",
+                    save_path=os.path.join(rep_dir, pattern, f"rep{rep}_angle_vs_vividness.png"),
+                    protocol=protocol
+                )
+
+        if mean_plot:
+
+            # 🔥 MEDIA SUI SOGGETTI, MANTENENDO LE REP
+            df_mean_all = (
+                df_pat
+                .groupby(["duration", "rep"], as_index=False)
+                .agg({
+                    "angle_deg": "mean",
+                    "vividness": "mean"
+                })
+            )
+
+            mean_dir = os.path.join(mean_all, pattern)
+            os.makedirs(mean_dir, exist_ok=True)
+
+            # -------- ANGLE vs DURATION (9 punti, 1 regressione) --------
+            plot_regression(
+                df_mean_all.dropna(subset=["angle_deg"]),
+                x_col="duration",
+                y_col="angle_deg",
+                title=f"ALL – {pattern} – Mean subjects (rep separated) – Angle",
+                ylabel="Angle (deg)",
+                xlabel="Duration (s)",
+                save_path=os.path.join(mean_dir, f"mean_angle_9points.png"),
+                protocol=protocol
+            )
+
+            # -------- VIVIDNESS vs DURATION --------
+            plot_regression(
+                df_mean_all.dropna(subset=["vividness"]),
+                x_col="duration",
+                y_col="vividness",
+                title=f"ALL – {pattern} – Mean subjects (rep separated) – Vividness",
+                ylabel="Vividness",
+                xlabel="Duration (s)",
+                save_path=os.path.join(mean_dir, f"mean_vividness_9points.png"),
+                protocol=protocol
+            )
+
+            # -------- ANGLE vs VIVIDNESS --------
+            plot_regression(
+                df_mean_all.dropna(subset=["vividness"]),
+                x_col="vividness",
+                y_col="angle_deg",
+                title=f"ALL – {pattern} – Mean subjects (rep separated) – Angle vs Vividness",
+                ylabel="Angle (deg)",
+                xlabel="Vividness",
+                save_path=os.path.join(mean_dir, f"mean_angle_vs_vividness_9points.png"),
+                protocol=protocol
+            )
+

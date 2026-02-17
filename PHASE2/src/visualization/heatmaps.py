@@ -55,6 +55,47 @@ def _setup_ax(ax, xlim, ylim):
     for yj in range(ylim[0], ylim[1] + 1):
         ax.hlines(yj - 0.5, xlim[0] - 0.5, xlim[1] + 0.5, color="lightgrey", lw=0.8)
 
+def _draw_pattern_legend(fig, pattern_colors, ordered_patterns, title=None):
+    """
+    Draw legend with adaptive layout:
+    - 8 patterns  -> 4 + 4
+    - 11 patterns -> 4 + 3 + 4
+    """
+
+    patches = {p: mpatches.Patch(color=pattern_colors[p], label=p)
+               for p in ordered_patterns}
+
+    if len(ordered_patterns) == 11:
+        rows = [
+            ordered_patterns[:4],
+            ordered_patterns[4:7],
+            ordered_patterns[7:11],
+        ]
+        y_positions = [0.93, 0.89, 0.85]
+
+    else:
+        # fallback: two rows, centered
+        half = int(np.ceil(len(ordered_patterns) / 2))
+        rows = [
+            ordered_patterns[:half],
+            ordered_patterns[half:]
+        ]
+        y_positions = [0.93, 0.89]
+
+    for row, y in zip(rows, y_positions):
+        fig.legend(
+            handles=[patches[p] for p in row],
+            loc="upper center",
+            bbox_to_anchor=(0.5, y),
+            ncol=len(row),
+            frameon=False
+        )
+
+    if title:
+        fig.text(0.5, y_positions[0] + 0.03, title,
+                 ha="center", va="bottom", fontsize=11)
+
+
 # -----------------------------
 # Plotting functions
 # -----------------------------
@@ -78,9 +119,11 @@ def plot_heatmap(df, filename, title, protocol, metric="vividness", start_pos=(1
     _setup_ax(ax, xlim, ylim)
 
     # legend
-    patches = [mpatches.Patch(color=pattern_colors[p], label=p) for p in ordered_patterns]
-    fig.legend(handles=patches, loc="upper center", bbox_to_anchor=(0.5,0.92),
-               ncol=4, title=f"Pattern ({cols['pattern_pair']})")
+    _draw_pattern_legend(
+        fig,
+        pattern_colors,
+        ordered_patterns
+    )
 
     ax.set_xlabel("X position")
     ax.set_ylabel("Y position")
@@ -110,11 +153,14 @@ def plot_reps(df, subject_id, filename, protocol, metric="vividness", start_pos=
         ax.set_xlabel("X position")
     axes[0].set_ylabel("Y position")
 
-    patches = [mpatches.Patch(color=pattern_colors[p], label=p) for p in ordered_patterns]
-    fig.legend(handles=patches, loc="upper center", bbox_to_anchor=(0.5,0.92),
-               ncol=4, title=f"Pattern ({cols['pattern_pair']})")
+    _draw_pattern_legend(
+        fig,
+        pattern_colors,
+        ordered_patterns
+    )
+
     fig.suptitle(f"Subject {subject_id} – Repetitions", fontsize=16, y=0.99)
-    fig.subplots_adjust(top=1.15)
+    fig.subplots_adjust(top=1.00)
 
     plt.savefig(filename, dpi=150, bbox_inches="tight")
     plt.close()

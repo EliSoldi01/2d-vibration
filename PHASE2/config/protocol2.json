@@ -13,9 +13,9 @@
     "definitions": [
       {
         "id": "P01",
-        "biceps": [1, 0, 0],
+        "biceps": [0, 0, 1],
         "triceps": [0, 0, 0],
-        "text": "100_000",
+        "text": "001_000",
         "effect": "extension",
         "code": "E1F0",
         "color": "#ffe8bf",
@@ -63,9 +63,9 @@
       },
       {
         "id": "P06",
-        "biceps": [1, 1, 0],
+        "biceps": [0, 1, 1],
         "triceps": [0, 0, 0],
-        "text": "110_000",
+        "text": "011_000",
         "effect": "extension",
         "code": "E2F0",
         "color": "#ffa100",
@@ -73,9 +73,9 @@
       },
       {
         "id": "P07",
-        "biceps": [1, 0, 0],
-        "triceps": [1, 0, 0],
-        "text": "100_100",
+        "biceps": [0, 0, 1],
+        "triceps": [0, 0, 1],
+        "text": "001_001",
         "effect": "noise",
         "code": "E0F0",
         "color": "#c9c9c9",

@@ -1,6 +1,8 @@
 import os
 import warnings
+from analysis.sigmoid_fit import fit_group_sigmoid
 from utils.create_std_excel import create_std_normalized_excel
+from utils.extract_model_parameters import create_subject_model_and_global_excel_weighted
 
 # ----------------------------
 # Data I/O
@@ -27,27 +29,29 @@ print("-------------------------------------------------------------------------
 # --------------------------------------------
 # CONFIGURATION
 # --------------------------------------------
-subjects_to_process = ["S01", "S04"]
-pattern_to_process = ["100_000", "000_100"]
+subjects_to_process = None #None for all subjects, otherwise write subjects to analyze e.g. ["S01", "S02"]
+pattern_to_process = ["001_000", "000_001"] # None for all patterns, otherwise write patterns to analyze e.g. ["001_000", "000_001"]
 
 do_heatmaps = False
-do_regressions = True
-do_regression_original_durations = True
+do_regressions = False
+do_regression_original_durations = False
 do_regression_ordered_durations = False
-do_std_excel = False
-recalc_subject = False
-update_group_average = False
-save_plots = False
+do_std_excel = True
+do_model_parameters = True
+do_sigmoid_fit = True
+recalc_subject = True
+update_group_average = True
+save_plots = True
 
 # --------------------------------------------
 # DATA LOADING
 # --------------------------------------------
-protocol = load_data.load_protocol("config\\protocol1.json")
+protocol = load_data.load_protocol("config\\protocol2.json")
 maindata = load_data.load_main_data(
-    "C:\\Users\\Utente\\Desktop\\Elisa\\Research\\2D-vibration\\Phase1\\Subjects\\data_all_subjects - RIDOTTO.xlsx"
+    "C:\\Users\\Utente\\Desktop\\Elisa\\Research\\2D-vibration\\Phase2\\Results\\data_all_subjects_P2.xlsx"
 )
 subject_info = load_data.load_data_file(
-    "C:\\Users\\Utente\\Desktop\\Elisa\\Research\\2D-vibration\\Phase1\\Subjects\\RIDOTTO_results\\Subjects_list.xlsx"
+    "C:\\Users\\Utente\\Desktop\\Elisa\\Research\\2D-vibration\\Phase2\\Results\\Subjects\\Subjects_list.xlsx"
 )
 
 print("Data loaded.")
@@ -56,6 +60,10 @@ print("Data loaded.")
 OUTPUT_FOLDER = "Results_"+protocol["name"]
 OUTPUT_FOLDER_REG = os.path.join(OUTPUT_FOLDER, "regressions")
 OUTPUT_FOLDER_STD = os.path.join(OUTPUT_FOLDER, "stats")
+subject_output_folder = os.path.join(OUTPUT_FOLDER, "subject_models")
+global_output_path = os.path.join(OUTPUT_FOLDER, "Global_Model_Parameters.xlsx")
+output_fit_file = os.path.join(OUTPUT_FOLDER, "Group_Sigmoid_Fit.xlsx")
+
 
 # Crea tutte le cartelle necessarie
 for folder in [OUTPUT_FOLDER, OUTPUT_FOLDER_REG, OUTPUT_FOLDER_STD]:
@@ -175,5 +183,21 @@ if do_std_excel:
     print(f"[INFO] Std normalized Excel created at {output_excel}")
 else:
     print("SKIPPING creation std excel")
+
+# -------------------------
+# MODEL PARAMETERS EXCEL
+# -------------------------
+if do_model_parameters:
+    print("Doing model parameters extraction and validation...")
+    global_validation_df =create_subject_model_and_global_excel_weighted(df, protocol, subject_output_folder, global_output_path)
+else:
+    print("SKIPPING subject model files")
+
+if do_sigmoid_fit:
+    print("Doing sigmoid fit...")
+    fit_group_sigmoid(global_validation_df, True)
+else:
+    print("SKIPPING sigmoid fit")
+
 
 print("MAIN ANALYSIS COMPLETED.")
