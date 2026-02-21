@@ -28,6 +28,7 @@ def add_presentation_order(df, subject_orders, duration_col="duration"):
         block_order = str(order_map.get(row["subject"]))
         order = [int(d) for d in block_order]
         return order.index(int(row[duration_col])) + 1
+    
 
     df["presentation_order"] = df.apply(map_order, axis=1)
     return df

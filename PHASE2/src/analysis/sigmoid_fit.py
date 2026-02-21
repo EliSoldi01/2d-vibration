@@ -1,5 +1,5 @@
 import numpy as np
-import pandas as pd
+import os
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from sklearn.linear_model import LinearRegression
@@ -19,7 +19,7 @@ def sigmoid_model(x, L_min, L_max, k, D0):
 # ----------------------------
 # FIT MODELLI
 # ----------------------------
-def fit_models(x, y, weights=None, plot=True):
+def fit_models(x, y, weights=None, plot=True, output_folder=None):
     """
     Confronta modelli: lineare, potenza, sigmoide
     Args:
@@ -40,7 +40,7 @@ def fit_models(x, y, weights=None, plot=True):
     lin_model = LinearRegression(fit_intercept=False)
     lin_model.fit(x.reshape(-1,1), y, sample_weight=weights)
     y_lin_pred = lin_model.predict(x.reshape(-1,1))
-    r2_lin = lin_model.score(x.reshape(-1,1), y, sample_weight=weights)
+    r2_lin = lin_model.score(x.reshape(-1,1), y)
     results['linear'] = {'params': lin_model.coef_[0], 'r2': r2_lin, 'y_pred': y_lin_pred}
 
     # ---------------- Sigmoide ----------------
@@ -50,12 +50,9 @@ def fit_models(x, y, weights=None, plot=True):
         D0 = np.median(x)          # centro iniziale
         p0 = [-L0, L0, k0, D0]
 
-        # limiti
-
-
         popt_sig, _ = curve_fit(sigmoid_model, x, y, p0=p0, sigma=1/weights, absolute_sigma=True, maxfev=5000)
         y_sig_pred = sigmoid_model(x, *popt_sig)
-        r2_sig = r2_score(y, y_sig_pred, sample_weight=weights)
+        r2_sig = r2_score(y, y_sig_pred)
         results['sigmoid'] = {'params': popt_sig, 'r2': r2_sig, 'y_pred': y_sig_pred}
     except:
         results['sigmoid'] = {'params':[np.nan,np.nan,np.nan], 'r2': np.nan, 'y_pred': np.full_like(y, np.nan)}
@@ -74,14 +71,15 @@ def fit_models(x, y, weights=None, plot=True):
         plt.ylabel("Real mean")
         plt.title("Model comparison")
         plt.legend()
+        plt.savefig(os.path.join(output_folder, 'Sigmoid_fit.png'), dpi=300, bbox_inches='tight')
         plt.show()
 
     return results
 
-def fit_group_sigmoid(df, plot=True):
+def fit_group_sigmoid(df, plot=True, output_folder=None):
     x = df["ideal_mean"].values
     y = df["real_mean"].values
 
-    fit_models(x, y, plot=plot)
+    fit_models(x, y, plot=plot, output_folder=output_folder)
 
     
