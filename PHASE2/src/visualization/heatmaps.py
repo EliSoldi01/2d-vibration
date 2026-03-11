@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from PIL import Image
+from matplotlib.lines import Line2D
 
 # -----------------------------
 # Helper functions
@@ -55,11 +56,14 @@ def _setup_ax(ax, xlim, ylim):
     for yj in range(ylim[0], ylim[1] + 1):
         ax.hlines(yj - 0.5, xlim[0] - 0.5, xlim[1] + 0.5, color="lightgrey", lw=0.8)
 
-def _draw_pattern_legend(fig, pattern_colors, ordered_patterns, title=None):
+def _draw_pattern_legend(fig, pattern_colors, ordered_patterns, title=None, extra_handles=None):
     """
     Draw legend with adaptive layout:
     - 8 patterns  -> 4 + 4
     - 11 patterns -> 4 + 3 + 4
+    
+    extra_handles: list of matplotlib handles (optional)
+                   e.g. quadratic fit, start position
     """
 
     patches = {p: mpatches.Patch(color=pattern_colors[p], label=p)
@@ -74,26 +78,39 @@ def _draw_pattern_legend(fig, pattern_colors, ordered_patterns, title=None):
         y_positions = [0.93, 0.89, 0.85]
 
     else:
-        # fallback: two rows, centered
         half = int(np.ceil(len(ordered_patterns) / 2))
         rows = [
             ordered_patterns[:half],
             ordered_patterns[half:]
         ]
-        y_positions = [0.93, 0.89]
+        y_positions = [0.93, 0.88]
 
+    # --- PATTERN LEGENDS (centered) ---
     for row, y in zip(rows, y_positions):
         fig.legend(
             handles=[patches[p] for p in row],
             loc="upper center",
             bbox_to_anchor=(0.5, y),
             ncol=len(row),
+            frameon=False,
+            fontsize=13
+        )
+
+    # --- EXTRA LEGEND (on the right) ---
+    if extra_handles:
+        fig.legend(
+            handles=extra_handles,
+            loc="upper left",
+            bbox_to_anchor=(0.75, y_positions[0]),  # <-- posizione a destra
             frameon=False
         )
 
     if title:
-        fig.text(0.5, y_positions[0] + 0.03, title,
-                 ha="center", va="bottom", fontsize=11)
+        fig.text(0.5, y_positions[0] + 0.03,
+                 title,
+                 ha="center",
+                 va="bottom",
+                 fontsize=15)
 
 
 # -----------------------------
@@ -130,6 +147,184 @@ def plot_heatmap(df, filename, title, protocol, metric="vividness", start_pos=(1
     fig.subplots_adjust(top=0.75)
     plt.savefig(filename, dpi=150, bbox_inches="tight")
     plt.close()
+
+def plot_heatmap_abstract(df, durations, protocol, filename, subject_id="ALL", metric="vividness", start_pos=(11,5)):
+    """
+    Crea un unico plot orizzontale con n pannelli (uno per durata).
+    - Unica legenda globale in alto.
+    - Formule degli archi posizionate sotto ogni arco.
+    - Colori uniformati (Extension, Flexion, Neutral).
+    """
+    n = len(durations)
+    cols = _get_columns(protocol)
+    scale_max = max(protocol['scales'][metric]['values'])
+    
+    # Creazione figura: sharey=True permette un confronto onesto delle altezze degli archi
+    fig, axes = plt.subplots(1, n, figsize=(5 * n, 5), sharey=True)
+    if n == 1: axes = [axes]
+
+    # Mappatura colori fissa per l'abstract
+    color_map_abstract = {
+        "extension": "#ffa100",
+        "flexion": "#3164a5",
+        "neutral": "#b7b2b8"
+    }
+    #color_map_abstract = {
+    #    "data": "#b7b2b8"
+    #}
+
+    for i, dur in enumerate(durations):
+        ax = axes[i]
+        df_dur = df[df["duration"] == dur]
+        
+        # Se i dati sono mediati (come in save_all_subjects_heatmaps), raggruppiamo
+        df_mean = df_dur.groupby([cols["pattern_pair"], cols["rep"]]).agg({
+            cols["x"]: "mean",
+            cols["y"]: "mean",
+            metric: "mean"
+        }).reset_index()
+
+        # 1. Setup asse (Griglia e limiti)
+        ax.set_title(f"Duration: {dur}s", fontsize=18, fontweight='bold', pad=10)
+        _setup_ax(ax, (1, protocol["grid"]["x"]), (1, protocol["grid"]["y"]))
+        
+        # 2. Disegno Cerchi con colori uniformati
+        for _, row in df_mean.iterrows():
+            pair = str(row[cols["pattern_pair"]]).lower()
+            if pair in ["111_000", "011_000", "011_100", "001_000"]: color = color_map_abstract["extension"]
+            elif  pair in ["000_111", "000_011", "100_011", "000_001"]: color = color_map_abstract["flexion"]
+            else: color = color_map_abstract["neutral"]
+            
+            radius = 0.5 * (row[metric] / scale_max)
+            ax.add_patch(plt.Circle((row[cols["x"]], row[cols["y"]]), radius, 
+                                    color=color, fill=False, linewidth=1.8, alpha=0.7))
+        
+        # Punto di partenza (X rossa)
+        ax.scatter(*start_pos, c="red", s=100, marker="x", zorder=10)
+
+        # 3. Fit dell'Arco e Formula
+        x_vals, y_vals = df_mean[cols["x"]].values, df_mean[cols["y"]].values
+        if len(x_vals) > 2:
+            z = np.polyfit(x_vals, y_vals, 2)
+            p = np.poly1d(z)
+            x_new = np.linspace(x_vals.min(), x_vals.max(), 100)
+            
+            # Disegno Arco
+            ax.plot(x_new, p(x_new), color="black", lw=2, linestyle='-', alpha=0.8, zorder=5)
+            
+            
+            # POSIZIONAMENTO: Ultima riga, centro dell'arco
+            # Usiamo grid_y_max per forzare la scritta in fondo alla matrice
+            formula_txt = f"$y = {z[0]:.2f}x^2 + {z[1]:.2f}x + {z[2]:.2f}$"
+            ax.text(np.mean(x_new), 2, formula_txt, 
+                    color="black", fontsize=16, ha="center", va="center",
+                    bbox=dict(facecolor='white', alpha=0.9, edgecolor='none', pad=1))
+
+        ax.set_xlabel("X position", fontsize=16)
+        if i == 0: ax.set_ylabel("Y position", fontsize=16)
+
+    # 4. Legenda Globale Semplificata
+    handles = [
+        mpatches.Patch(color=color_map_abstract["extension"], label="Extension"),
+        mpatches.Patch(color=color_map_abstract["flexion"], label="Flexion"),
+        mpatches.Patch(color=color_map_abstract["neutral"], label="Neutral"),
+        Line2D([0], [0], color='black', lw=2, label="Quadratic Fit"),
+        Line2D([0], [0], color='red', marker='x', linestyle='None', 
+               markersize=8, markeredgewidth=2, label='Start Position'),
+    ]
+    
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.98),
+               ncol=5, frameon=False, fontsize=15)
+
+    plt.tight_layout()
+    plt.savefig(filename, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"[SUCCESS] Plot combinato salvato in: {filename}")
+
+def plot_heatmap_paper(df, durations, protocol, filename, subject_id="ALL", metric="vividness", start_pos=(11,5)):
+    """
+    Crea un unico plot orizzontale con n pannelli (uno per durata).
+    - Unica legenda globale in alto.
+    - Formule degli archi posizionate sotto ogni arco.
+    - Colori uniformati (Extension, Flexion, Neutral).
+    """
+    n = len(durations)
+    cols = _get_columns(protocol)
+    scale_max = max(protocol['scales'][metric]['values'])
+    
+    # Creazione figura: sharey=True permette un confronto onesto delle altezze degli archi
+    fig, axes = plt.subplots(1, n, figsize=(5 * n, 5), sharey=True)
+    if n == 1: axes = [axes]
+
+    pattern_list = sorted(df[cols["pattern_pair"]].unique())
+    pattern_colors, ordered_patterns = _get_pattern_colors(protocol, pattern_list)
+    for i, dur in enumerate(durations):
+        ax = axes[i]
+        df_dur = df[df["duration"] == dur]
+        
+        # Se i dati sono mediati (come in save_all_subjects_heatmaps), raggruppiamo
+        df_mean = df_dur.groupby([cols["pattern_pair"], cols["rep"]]).agg({
+            cols["x"]: "mean",
+            cols["y"]: "mean",
+            metric: "mean"
+        }).reset_index()
+
+        # 1. Setup asse (Griglia e limiti)
+        ax.set_title(f"Duration: {dur}s", fontsize=18, fontweight='bold', pad=10)
+        _setup_ax(ax, (1, protocol["grid"]["x"]), (1, protocol["grid"]["y"]))
+        
+        # 2. Disegno Cerchi con colori uniformati
+        for _, row in df_mean.iterrows():
+            pair = row[cols["pattern_pair"]]
+            color = pattern_colors[pair]
+            
+            radius = 0.5 * (row[metric] / scale_max)
+            ax.add_patch(plt.Circle((row[cols["x"]], row[cols["y"]]), radius, 
+                                    color=color, fill=False, linewidth=1.8, alpha=0.7))
+        
+        # Punto di partenza (X rossa)
+        ax.scatter(*start_pos, c="red", s=100, marker="x", zorder=10)
+
+        # 3. Fit dell'Arco e Formula
+        x_vals, y_vals = df_mean[cols["x"]].values, df_mean[cols["y"]].values
+        if len(x_vals) > 2:
+            z = np.polyfit(x_vals, y_vals, 2)
+            p = np.poly1d(z)
+            x_new = np.linspace(x_vals.min(), x_vals.max(), 100)
+            
+            # Disegno Arco
+            ax.plot(x_new, p(x_new), color="black", lw=2, linestyle='-', alpha=0.8, zorder=5)
+            
+            
+            # POSIZIONAMENTO: Ultima riga, centro dell'arco
+            # Usiamo grid_y_max per forzare la scritta in fondo alla matrice
+            formula_txt = f"$y = {z[0]:.2f}x^2 + {z[1]:.2f}x + {z[2]:.2f}$"
+            ax.text(np.mean(x_new), 2, formula_txt, 
+                    color="black", fontsize=16, ha="center", va="center",
+                    bbox=dict(facecolor='white', alpha=0.9, edgecolor='none', pad=1))
+
+        ax.set_xlabel("X position", fontsize=16)
+        if i == 0: ax.set_ylabel("Y position", fontsize=16)
+
+    # 4. Legenda Globale Semplificata
+        extra_handles = [
+        Line2D([0], [0], color='black', lw=2, label="Quadratic Fit"),
+        Line2D([0], [0], color='red', marker='x',
+            linestyle='None', markersize=8,
+            markeredgewidth=2, label='Start Position'),
+    ]
+
+    _draw_pattern_legend(
+        fig,
+        pattern_colors,
+        ordered_patterns,
+        extra_handles=extra_handles
+    )
+
+    plt.tight_layout()
+    plt.savefig(filename, dpi=600, bbox_inches="tight")
+    plt.close()
+    print(f"[SUCCESS] Plot combinato salvato in: {filename}")
 
 def plot_reps(df, subject_id, filename, protocol, metric="vividness", start_pos=(11,5)):
     """Plot subplots for each repetition."""
@@ -194,6 +389,8 @@ def combine_images_vertical(subject_folder, subject_id, durations, mode="reps", 
         output_name = f"{subject_id}_{mode}_ALL_durations_vertical.png"
     combined.save(os.path.join(subject_folder, output_name))
 
+
+
 # -----------------------------
 # Save functions
 # -----------------------------
@@ -255,6 +452,8 @@ def save_all_subjects_heatmaps(df, protocol, output_folder="Results_", metric="v
                      os.path.join(dur_folder, f"ALL_global_{dur}s.png"),
                      f"ALL Subjects – Global Heatmap ({dur}s)",
                      protocol, metric=metric, start_pos=start_pos)
+        
+        
 
         plot_reps(df_mean,
                   subject_id=f"ALL Subjects – Repetitions ({dur}s)",
@@ -262,6 +461,14 @@ def save_all_subjects_heatmaps(df, protocol, output_folder="Results_", metric="v
                   protocol=protocol,
                   metric=metric,
                   start_pos=start_pos)
+     
+    plot_heatmap_paper(
+            df=df, 
+            durations=durations[1:], 
+            protocol=protocol, 
+            filename=os.path.join(all_folder, "Figure2A.png"),
+            subject_id="ALL_SUBJECTS"
+    )
 
     combine_images_vertical(all_folder, "ALL", durations, mode="reps",
                             output_name="ALL_reps_ALL_durations_vertical.png")
