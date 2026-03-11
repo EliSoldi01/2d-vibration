@@ -30,7 +30,7 @@ print("-------------------------------------------------------------------------
 # --------------------------------------------
 # CONFIGURATION
 # --------------------------------------------
-subjects_to_process = ["S01"] # None per tutti
+subjects_to_process = ["S02"] # None per tutti
 pattern_to_process = ["001_000", "000_001"]
 
 arm = "left"
@@ -43,7 +43,7 @@ do_regression_ordered_durations_global = False
 do_std_excel = False
 do_model_parameters = True
 do_sigmoid_fit = True
-do_cross_validation = False
+do_cross_validation = True
 recalc_subject = True
 update_group_average = True
 save_plots = True
