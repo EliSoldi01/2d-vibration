@@ -18,7 +18,7 @@
         "text": "001_000",
         "effect": "extension",
         "code": "E1F0",
-        "color": "#ffe8bf",
+        "color": "#ffa100",
         "legend_position": 4
       },
       {
@@ -28,7 +28,7 @@
         "text": "100_011",
         "effect": "flexion",
         "code": "E1F2",
-        "color": "#749bce",
+        "color": "#3164a5",
         "legend_position": 9
       },
       {
@@ -38,7 +38,7 @@
         "text": "011_100",
         "effect": "extension",
         "code": "F1E2",
-        "color": "#ffd080",
+        "color": "#ffa100",
         "legend_position": 3
       },
       {
@@ -58,7 +58,7 @@
         "text": "000_111",
         "effect": "flexion",
         "code": "E0F3",
-        "color": "#032e64",
+        "color": "#3164a5",
         "legend_position": 11
       },
       {
@@ -78,7 +78,7 @@
         "text": "001_001",
         "effect": "noise",
         "code": "E0F0",
-        "color": "#c9c9c9",
+        "color": "#b7b2b8",
         "legend_position": 6
       },
       {
@@ -88,7 +88,7 @@
         "text": "111_000",
         "effect": "extension",
         "code": "E3F0",
-        "color": "#b37100",
+        "color": "#ffa100",
         "legend_position": 1
       },
       {
@@ -118,7 +118,7 @@
         "text": "000_001",
         "effect": "flexion",
         "code": "E0F1",
-        "color": "#c3d5ea",
+        "color": "#3164a5",
         "legend_position": 8
       }
     ]

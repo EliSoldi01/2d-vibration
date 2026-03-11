@@ -1,8 +1,9 @@
 import os
 import warnings
-from analysis.sigmoid_fit import fit_group_sigmoid
+from analysis.model_fit import fit_group_sigmoid
 from utils.create_std_excel import create_std_normalized_excel
-from utils.extract_model_parameters import create_subject_model_and_global_excel_weighted
+from analysis.extract_model_parameters import create_subject_and_global_excel
+from analysis.cross_validation import loocv_leave_one_subject
 
 # ----------------------------
 # Data I/O
@@ -29,16 +30,19 @@ print("-------------------------------------------------------------------------
 # --------------------------------------------
 # CONFIGURATION
 # --------------------------------------------
-subjects_to_process = None #None for all subjects, otherwise write subjects to analyze e.g. ["S01", "S02"]
-pattern_to_process = ["001_000", "000_001"] # None for all patterns, otherwise write patterns to analyze e.g. ["001_000", "000_001"]
+subjects_to_process = None # None per tutti
+pattern_to_process = ["001_000", "000_001"]
 
 do_heatmaps = False
 do_regressions = False
-do_regression_original_durations = False
-do_regression_ordered_durations = False
-do_std_excel = True
+do_regression_original_durations_per_subj = True
+do_regression_ordered_durations_per_subj = False
+do_regression_original_durations_global = True
+do_regression_ordered_durations_global = False
+do_std_excel = False
 do_model_parameters = True
 do_sigmoid_fit = True
+do_cross_validation = False
 recalc_subject = True
 update_group_average = True
 save_plots = True
@@ -48,23 +52,23 @@ save_plots = True
 # --------------------------------------------
 protocol = load_data.load_protocol("config\\protocol2.json")
 maindata = load_data.load_main_data(
-    "C:\\Users\\Utente\\Desktop\\Elisa\\Research\\2D-vibration\\Phase2\\Results\\data_all_subjects_P2.xlsx"
+    "C:\\Users\\Utente\\Desktop\\Elisa\\Research\\2D-vibration\\Phase2\\Results\\data_all_subjects_P2_with0.xlsx"
 )
 subject_info = load_data.load_data_file(
-    "C:\\Users\\Utente\\Desktop\\Elisa\\Research\\2D-vibration\\Phase2\\Results\\Subjects\\Subjects_list.xlsx"
+    "C:\\Users\\Utente\\Desktop\\Elisa\\Research\\2D-vibration\\Phase2\\Results\\Subjects\\Subjects_list_with0.xlsx"
 )
 
 print("Data loaded.")
 
 # Output paths
-OUTPUT_FOLDER = "Results_"+protocol["name"]
+OUTPUT_FOLDER = "Results_" + protocol["name"]
 OUTPUT_FOLDER_REG = os.path.join(OUTPUT_FOLDER, "regressions")
 OUTPUT_FOLDER_STD = os.path.join(OUTPUT_FOLDER, "stats")
-subject_output_folder = os.path.join(OUTPUT_FOLDER, "subject_models")
-global_output_path = os.path.join(OUTPUT_FOLDER, "Global_Model_Parameters.xlsx")
+OUTPUT_FOLDER_MODEL = os.path.join(OUTPUT_FOLDER, "model")
+subject_models_path = os.path.join(OUTPUT_FOLDER_MODEL, "subject_models")
+model_validation_path = os.path.join(OUTPUT_FOLDER_MODEL, "model_validation")
 
-# Crea tutte le cartelle necessarie
-for folder in [OUTPUT_FOLDER, OUTPUT_FOLDER_REG, OUTPUT_FOLDER_STD]:
+for folder in [OUTPUT_FOLDER, OUTPUT_FOLDER_REG, OUTPUT_FOLDER_STD, OUTPUT_FOLDER_MODEL]:
     os.makedirs(folder, exist_ok=True)
 
 # Merge and preprocess
@@ -87,6 +91,14 @@ subject_orders = subject_info.set_index("subject")["block_order"].astype(str).to
 df = ordering.add_presentation_order(df, subject_orders, duration_col="duration")
 df = ordering.add_presentation_pos(df, subject_orders, duration_col="duration")
 print("Presentation order and positions added.")
+# -------------------------
+# SAVE ENRICHED DATAFRAME
+# -------------------------
+enriched_output_path = os.path.join(OUTPUT_FOLDER, "data_with_angles_and_presentation.xlsx")
+
+df.to_excel(enriched_output_path, index=False, engine="openpyxl")
+
+print(f"✅ DataFrame saved in: {enriched_output_path}")
 print("----------------------------------------------------------------------------------------")
 
 # --------------------------------------------
@@ -101,42 +113,86 @@ print(f"Patterns to analyze: {patterns_list}")
 print("------------------------------------------------------------------------------------------")
 
 # -------------------------
+# MODEL PARAMETERS & VALIDATION
+# -------------------------
+if do_model_parameters:
+    print("Doing model parameters extraction and global validation...")
+    all_params, validation_dfs, Kb_global, Kt_global, group_validation_df = create_subject_and_global_excel(
+        df, protocol, subject_models_path
+    )
+    print(f"Global Kb={Kb_global:.3f}, Kt={Kt_global:.3f}")
+else:
+    print("SKIPPING model parameters")
+
+# -------------------------
 # REGRESSION PLOTS
 # -------------------------
 if do_regressions:
     print("Doing regression plots...")
-    for subj in subjects_list:
-        print(f"-- Analyzing subject {subj}")
-        subj_df = df[df["subject"] == subj].copy()
-        for pat in patterns_list:
 
-            if do_regression_ordered_durations:
-                # Durations in ascending order
-                plot_regression.plot_subject_pattern(subj_df, subj, pat, protocol, output_folder=os.path.join(OUTPUT_FOLDER_REG, "duration"))
-                plot_regression.plot_group_average(df, patterns_list, protocol, output_folder=os.path.join(OUTPUT_FOLDER_REG, "duration"))
+    for pat in patterns_list:
+        for subj in subjects_list:
+            subj_df = df[df["subject"] == subj].copy()
+            if do_regression_original_durations_per_subj:
+                print(f"Plotting subject {subj} with original durations...")
+                x_col = "duration"
+                path=os.path.join(OUTPUT_FOLDER_REG, "duration")
 
-            if do_regression_original_durations:
-                # Durations in presentation order
                 plot_regression.plot_subject_pattern(
                     subj_df,
                     subj,
                     pat,
                     protocol,
-                    per_reps_plot=False,
-                    output_folder=os.path.join(OUTPUT_FOLDER_REG, "block_order"),
-                    x_col="presentation_order",
-                    x_label="Duration (s) in presentation order"
+                    output_folder=path,
+                    x_col=x_col,
+                    x_label="Duration (s)"
                 )
-                plot_regression.plot_group_average(
-                    df,
-                    patterns_list,
+                
+            if do_regression_ordered_durations_per_subj:
+                print(f"Plotting subject {subj} with presentation order...")
+                x_col = "presentation_order"
+                path=os.path.join(OUTPUT_FOLDER_REG, "presentation_order")
+                
+                plot_regression.plot_subject_pattern(
+                    subj_df,
+                    subj,
+                    pat,
                     protocol,
-                    per_reps_plot=False,
-                    output_folder=os.path.join(OUTPUT_FOLDER_REG, "block_order"),
-                    x_col="presentation_order",
-                    x_label="Duration (s) in presentation order"
+                    output_folder=path,
+                    x_col=x_col,
+                    x_label="Duration (s)"
                 )
+            
 
+    if do_regression_original_durations_global:
+        print("Plotting ALL_SUBJECTS with original durations...")
+        x_col = "duration"
+        path = os.path.join(OUTPUT_FOLDER_REG, "duration", "ALL_SUBJECTS")
+
+        plot_regression.plot_group_average(
+            df,
+            patterns_list,
+            protocol,
+            output_folder=path,
+            x_col=x_col,
+            x_label="Duration (s)"
+        )
+        
+    if do_regression_ordered_durations_global:
+        print("Plotting ALL_SUBJECTS with presentation order...")
+        x_col = "presentation_order"
+        path = os.path.join(OUTPUT_FOLDER_REG, "presentation_order", "ALL_SUBJECTS")
+
+        plot_regression.plot_group_average(
+            df,
+            patterns_list,
+            protocol,
+            output_folder=path,
+            x_col=x_col,
+            x_label="Duration (s)"
+        )
+    
+    
 else:
     print("SKIPPING regression plots")
 
@@ -144,58 +200,41 @@ else:
 # HEATMAPS
 # -------------------------
 if do_heatmaps:
-    print("Doing heatmaps...")
+    
     for subj in subjects_list:
         heatmaps.save_subject_heatmaps(
-            df,
-            subj,
-            protocol,
-            output_folder=OUTPUT_FOLDER,
-            metric="vividness",
-            recalc_subject=recalc_subject,
-            start_pos=(11, 5)
+            df, subj, protocol, output_folder=OUTPUT_FOLDER, metric="vividness", recalc_subject=recalc_subject
         )
     if update_group_average:
-        heatmaps.save_all_subjects_heatmaps(
-            df,
-            protocol,
-            output_folder=OUTPUT_FOLDER,
-            metric="vividness",
-            start_pos=(11, 5)
-        )
+        heatmaps.save_all_subjects_heatmaps(df, protocol, output_folder=OUTPUT_FOLDER, metric="vividness")
 else:
     print("SKIPPING heatmaps")
 
 # -------------------------
-# STD NORMALIZED EXCEL
+# STD EXCEL
 # -------------------------
 if do_std_excel:
-    print("Doing std excel...")
     output_excel = os.path.join(OUTPUT_FOLDER_STD, "Std_Normalized_Phase2.xlsx")
-    create_std_normalized_excel(
-        metrics_df,
-        output_excel,
-        subjects=subjects_list,
-        patterns=patterns_list
-    )
-    print(f"[INFO] Std normalized Excel created at {output_excel}")
-else:
-    print("SKIPPING creation std excel")
+    create_std_normalized_excel(metrics_df, output_excel, subjects=subjects_list, patterns=patterns_list)
 
 # -------------------------
-# MODEL PARAMETERS EXCEL
+# SIGMOID FIT
 # -------------------------
-if do_model_parameters:
-    print("Doing model parameters extraction and validation...")
-    global_validation_df =create_subject_model_and_global_excel_weighted(df, protocol, subject_output_folder, global_output_path)
-else:
-    print("SKIPPING subject model files")
-
 if do_sigmoid_fit:
-    print("Doing sigmoid fit...")
-    fit_group_sigmoid(global_validation_df, True)
+    if 'group_validation_df' not in locals():
+        print("SKIP sigmoid: group_validation_df non disponibile")
+    else:
+        print("Fitting sigmoid to group validation data...")
+        print(group_validation_df.head())
+        fit_group_sigmoid(group_validation_df, True, output_folder=model_validation_path)
+        
 else:
     print("SKIPPING sigmoid fit")
 
+# -------------------------
+# CROSS VALIDATION
+# -------------------------
+if do_cross_validation:
+    loocv_df = loocv_leave_one_subject(df, os.path.join(model_validation_path, "LOOCV_sklearn.xlsx"))
 
 print("MAIN ANALYSIS COMPLETED.")
