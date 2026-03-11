@@ -30,12 +30,12 @@ print("-------------------------------------------------------------------------
 # --------------------------------------------
 # CONFIGURATION
 # --------------------------------------------
-subjects_to_process = ["S02"] # None per tutti
+subjects_to_process = None # None per tutti
 pattern_to_process = ["001_000", "000_001"]
 
 arm = "left"
-do_heatmaps = False
-do_regressions = False
+do_heatmaps = True
+do_regressions = True
 do_regression_original_durations_per_subj = True
 do_regression_ordered_durations_per_subj = False
 do_regression_original_durations_global = True
