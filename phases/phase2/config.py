@@ -6,11 +6,23 @@ SUBJECTS_PATH = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase2-Righ
 PROTOCOL_PATH = "phases/phase2/protocol2.json"
 OUTPUT_ROOT   = "results/phase2"
 
-DO_HEATMAPS         = True
-DO_REGRESSIONS      = True
-DO_MODEL_PARAMETERS = True
-DO_SIGMOID_FIT      = True
-DO_CROSS_VALIDATION = True
+# --- Cosa eseguire ---
+DO_HEATMAPS                              = True
+DO_REGRESSIONS                           = True
+DO_REGRESSION_ORIGINAL_DURATIONS_SUBJ   = True
+DO_REGRESSION_ORDERED_DURATIONS_SUBJ    = False
+DO_REGRESSION_ORIGINAL_DURATIONS_GLOBAL = True
+DO_REGRESSION_ORDERED_DURATIONS_GLOBAL  = False
+DO_STD_EXCEL                             = False
+DO_MODEL_PARAMETERS                      = True
+DO_SIGMOID_FIT                           = True
+DO_CROSS_VALIDATION                      = True
 
-SUBJECTS_TO_PROCESS = ["S01", "S04"]
+# --- Opzioni aggiuntive ---
+RECALC_SUBJECT      = True
+UPDATE_GROUP_AVERAGE = True
+SAVE_PLOTS          = True
+
+# --- Filtri ---
+SUBJECTS_TO_PROCESS = None
 PATTERNS_TO_PROCESS = ["001_000", "000_001"]
