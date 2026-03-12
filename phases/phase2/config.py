@@ -1,8 +1,8 @@
-﻿ARM        = "right"
+﻿ARM        = "left"
 START_CELL = [11, 5]
 
-DATA_PATH     = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase2-Right/Results/data_all_subjects_P2_with0.xlsx"
-SUBJECTS_PATH = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase2-Right/Results/Subjects/Subjects_list_with0.xlsx"
+DATA_PATH     = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase2-Left/Results/data_all_subjects_P2.xlsx"
+SUBJECTS_PATH = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase2-Left/Results/Subjects/Subjects_list_P2.xlsx"
 PROTOCOL_PATH = "phases/phase2/protocol2.json"
 OUTPUT_ROOT   = "results/phase2"
 
@@ -24,5 +24,5 @@ UPDATE_GROUP_AVERAGE = True
 SAVE_PLOTS          = True
 
 # --- Filtri ---
-SUBJECTS_TO_PROCESS = None
+SUBJECTS_TO_PROCESS = ["S01", "S02"]
 PATTERNS_TO_PROCESS = ["001_000", "000_001"]

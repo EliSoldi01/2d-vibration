@@ -1,10 +1,10 @@
-﻿ARM        = "left"
+﻿ARM        = "right"
 START_CELL = [11, 5]
 
-DATA_PATH     = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase3-Left/Results/data_all_subjects_P3_with0.xlsx"
-SUBJECTS_PATH = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase3-Left/Results/Subjects/Subjects_list_3.xlsx"
-PROTOCOL_PATH = "phases/phase3/protocol2.json"
-OUTPUT_ROOT   = "results/phase3"
+DATA_PATH     = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase1-Right/Results/data_all_subjects_P1.xlsx"
+SUBJECTS_PATH = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase1-Right/Results/Subjects/Subjects_list_P1.xlsx"
+PROTOCOL_PATH = "phases/phase1/protocol2.json"
+OUTPUT_ROOT   = "results/phase1"
 
 # --- Cosa eseguire ---
 DO_HEATMAPS                              = True
@@ -24,5 +24,5 @@ UPDATE_GROUP_AVERAGE = True
 SAVE_PLOTS          = True
 
 # --- Filtri ---
-SUBJECTS_TO_PROCESS = ["S01", "S02"]
+SUBJECTS_TO_PROCESS = None
 PATTERNS_TO_PROCESS = ["001_000", "000_001"]
