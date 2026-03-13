@@ -40,6 +40,23 @@ def signed_angle(v_ref, v_cur):
 
     return np.degrees(np.arctan2(det, dot))
 
+def signed_angle_from_elbow(point_cm, elbow_cm, reference_cm): 
+    """ Compute the signed angle (degrees) of point_cm as seen from elbow_cm, 
+    measured relative to the reference direction (elbow → reference_cm). 
+    Uses screen coordinate convention (y increases downward). 
+    Positive = clockwise on screen = extension (forearm moving upward on grid). 
+    Negative = counter-clockwise on screen = flexion. 
+    Consistent with Phase2 geometry.py signed_angle(): 
+    dot = v_ref · v_cur 
+    det = v_ref.x * v_cur.y - v_ref.y * v_cur.x 
+    angle = arctan2(det, dot) 
+    """ 
+    ref_vec = reference_cm - elbow_cm 
+    cur_vec = point_cm - elbow_cm 
+    dot = np.dot(ref_vec, cur_vec) 
+    det = ref_vec[0] * cur_vec[1] - ref_vec[1] * cur_vec[0] 
+    
+    return np.degrees(np.arctan2(det, dot))
 
 def compute_angle(start_cell, index_cell, forearm_cm, forearm_angle_deg, arm="right"):
     """

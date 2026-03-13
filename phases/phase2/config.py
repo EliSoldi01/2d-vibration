@@ -8,7 +8,7 @@ OUTPUT_ROOT   = "results/phase2"
 
 # --- Cosa eseguire ---
 DO_HEATMAPS                              = True
-DO_REGRESSIONS                           = True
+DO_REGRESSIONS                           = False
 DO_REGRESSION_ORIGINAL_DURATIONS_SUBJ   = True
 DO_REGRESSION_ORDERED_DURATIONS_SUBJ    = False
 DO_REGRESSION_ORIGINAL_DURATIONS_GLOBAL = True
@@ -24,5 +24,5 @@ UPDATE_GROUP_AVERAGE = True
 SAVE_PLOTS          = True
 
 # --- Filtri ---
-SUBJECTS_TO_PROCESS = ["S01", "S02"]
+SUBJECTS_TO_PROCESS = None
 PATTERNS_TO_PROCESS = ["001_000", "000_001"]

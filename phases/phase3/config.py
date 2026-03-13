@@ -3,7 +3,7 @@ START_CELL = [7, 10]
 
 DATA_PATH     = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase3-Trajectory/Results/data_all_subjects_P3.xlsx"
 SUBJECTS_PATH = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase3-Trajectory/Results/Subjects/Subjects_list_P3.xlsx"
-PROTOCOL_PATH = "phases/phase3/protocol2.json"
+PROTOCOL_PATH = "phases/phase3/protocol3.json"
 OUTPUT_ROOT   = "results/phase3"
 
 # --- Cosa eseguire ---
@@ -24,5 +24,5 @@ UPDATE_GROUP_AVERAGE = True
 SAVE_PLOTS          = True
 
 # --- Filtri ---
-SUBJECTS_TO_PROCESS = ["S01"]
+SUBJECTS_TO_PROCESS = None
 PATTERNS_TO_PROCESS = ["001_000", "000_001"]

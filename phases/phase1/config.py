@@ -8,7 +8,7 @@ OUTPUT_ROOT   = "results/phase1"
 
 # --- Cosa eseguire ---
 DO_HEATMAPS                              = True
-DO_REGRESSIONS                           = True
+DO_REGRESSIONS                           = False
 DO_REGRESSION_ORIGINAL_DURATIONS_SUBJ   = True
 DO_REGRESSION_ORDERED_DURATIONS_SUBJ    = False
 DO_REGRESSION_ORIGINAL_DURATIONS_GLOBAL = True

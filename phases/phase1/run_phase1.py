@@ -44,6 +44,7 @@ if not validate_data.validate_subject_data(df, protocol):
 print("Data validated successfully.")
 
 # --- Adding angle column and presentation order ---
+df["duration"] = df["duration"].astype(int)
 df = geometry.add_angle_column(df, cfg.START_CELL, arm=cfg.ARM)
 subject_orders = subject_info.set_index("subject")["block_order"].astype(str).to_dict()
 df = ordering.add_presentation_order(df, subject_orders, duration_col="duration")
