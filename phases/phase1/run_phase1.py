@@ -8,18 +8,19 @@ from core.data_io         import load_data, validate_data
 from core.utils           import geometry, ordering
 from core.utils.create_std_excel                import create_std_normalized_excel
 from core.analysis.extract_model_parameters     import create_subject_and_global_excel
-from core.analysis.model_fit                    import fit_group_sigmoid
+from core.analysis.model_fit                    import fit_group_sigmoid, plot_grouped_scatter
 from core.analysis.cross_validation             import loocv_leave_one_subject
 from core.visualization   import heatmaps
 from core.visualization   import plot_regressions as plot_regression
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-print("RUNNING PHASE 2 ANALYSIS")
+print("RUNNING PHASE 1 ANALYSIS")
 print("-" * 90)
 
 # --- Output folders ---
 OUT          = cfg.OUTPUT_ROOT
+OUT_HEATMAPS = os.path.join(OUT, "heatmaps")
 OUT_REG      = os.path.join(OUT, "regressions")
 OUT_STD      = os.path.join(OUT, "stats")
 OUT_MODEL    = os.path.join(OUT, "model")
@@ -71,15 +72,15 @@ print("-" * 90)
 # --- Heatmaps ---
 if cfg.DO_HEATMAPS:
     print("Generating heatmaps...")
-    for subj in subjects_list:
+    """for subj in subjects_list:
         heatmaps.save_subject_heatmaps(
             df, subj, protocol,
-            output_folder=OUT,
+            output_folder=OUT_HEATMAPS,
             metric="vividness",
             recalc_subject=cfg.RECALC_SUBJECT
-        )
+        )"""
     if cfg.UPDATE_GROUP_AVERAGE:
-        heatmaps.save_all_subjects_heatmaps(df_analysis, protocol, output_folder=OUT, metric="vividness")
+        heatmaps.save_all_subjects_heatmaps(df_analysis, protocol, output_folder=OUT_HEATMAPS, metric="vividness")
 else:
     print("SKIPPING heatmaps")
 
@@ -153,7 +154,19 @@ if cfg.DO_SIGMOID_FIT:
     else:
         print("Fitting sigmoid to group validation data...")
         print(group_validation_df.head())
-        fit_group_sigmoid(group_validation_df, plot=True, output_folder=OUT_VAL)
+        #fit_group_sigmoid(group_validation_df, plot=True, output_folder=OUT_VAL)
+        # 1. Fitta la tanh sul tuo dataset
+        results = fit_group_sigmoid(group_validation_df, plot=True, output_folder=OUT_VAL)
+
+        # 3. Plot con overlay tanh
+        plot_grouped_scatter(
+            group_validation_df,
+            selected_patterns=None,
+            protocol_path=cfg.PROTOCOL_PATH,
+            output_folder="plots",
+            results=results
+        )
+        group_validation_df.to_excel("group_validation_df.xlsx", index=False)  # index=False evita di salvare l'indice
 else:
     print("SKIPPING sigmoid fit")
 
@@ -165,4 +178,4 @@ else:
     print("SKIPPING cross validation")
 
 print("-" * 90)
-print("PHASE 2 ANALYSIS COMPLETED.")
+print("PHASE 1 ANALYSIS COMPLETED.")

@@ -178,8 +178,9 @@ def fit_models(x, y, weights=None, plot=True, output_folder=None, labels=None):
 
     if plot and labels is None:
         _plot_comparison(x, y, weights, results, output_folder)
+        
     elif plot and labels is not None:
-        _plot_comparison_with_labels(x, y, weights, results, output_folder, all_models = True, labels=labels)
+        _plot_comparison_with_labels(x, y, weights, results, output_folder, all_models = False, labels=labels)
 
     return results
 
@@ -210,6 +211,147 @@ def _print_summary(results):
     print(f"\n  AIC: lower = better | DELTA > 2 significativo | > 6 sostanziale")
     print("=================================================================\n")
 
+def plot_grouped_scatter(
+    df,
+    selected_patterns=None,
+    protocol_path=None,
+    output_folder=None,
+    results=None
+):
+    """
+    Scatter plot avanzato con overlay Tanh e legenda ordinata.
+    
+    Args:
+        df               : DataFrame con colonne 'ideal_angle', 'real_mean', 'pattern', 'duration'
+        selected_patterns: list di pattern da plottare (default tutti)
+        protocol_path    : path al protocol.json (per colori e ordine legenda)
+        output_folder    : cartella dove salvare il plot
+        tanh_params      : tuple (L, k) della tanh da sovrapporre
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os
+    import json
+
+    # 2. Estrai parametri tanh
+    tanh_params = results["tanh"]["params"] if results.get("tanh", {}).get("ok") else None
+    valid_aics = {k: r["aic"] for k, r in results.items() if not np.isnan(r["aic"])}
+    best_aic = min(valid_aics.values())
+    x_smooth = np.linspace(-40, 40, 300)
+
+    # --- filtro durata ---
+    df = df[df['duration'] != 0]
+
+    # --- filtro pattern ---
+    if selected_patterns is not None:
+        df = df[df['pattern'].isin(selected_patterns)]
+
+    plt.rcParams['font.family'] = 'Times New Roman'
+    fig, ax = plt.subplots(figsize=(12, 7))
+
+    # --- marker per durata ---
+    marker_map = {1: 'o', 3: '^', 6: 's'}
+
+    # --- colori da protocol.json ---
+    colors = {}
+    legend_order = {}
+    if protocol_path is not None:
+        with open(protocol_path, 'r') as f:
+            protocol = json.load(f)
+
+        definitions = protocol.get("patterns", {}).get("definitions", [])
+        for d in definitions:
+            text = d.get("text")
+            color = d.get("color")
+            pos = d.get("legend_position", 999)
+            if text and color:
+                colors[text] = color
+                legend_order[text] = pos
+
+    # fallback colori automatici
+    missing_patterns = set(df['pattern'].unique()) - set(colors.keys())
+    if missing_patterns:
+        cmap = plt.cm.tab20
+        for i, p in enumerate(sorted(missing_patterns)):
+            colors[p] = cmap(i / max(1, len(missing_patterns)))
+            legend_order[p] = 999
+
+    # --- plot scatter ---
+    for _, row in df.iterrows():
+        x = row['ideal_angle']
+        y = row['real_mean']
+        pat = row['pattern']
+        dur = row['duration']
+        ax.scatter(
+            x, y,
+            color=colors.get(pat, 'black'),
+            marker=marker_map.get(dur, 'o'),
+            s=100,
+            alpha=0.9,
+            label=f"{pat} {dur}"
+        )
+
+    # --- TANH overlay ---
+    tanh = results["tanh"]
+    d_tanh = tanh["aic"] - best_aic
+    if tanh_params is not None:
+        L, k = tanh_params
+        x_smooth = np.linspace(df['ideal_angle'].min(), df['ideal_angle'].max(), 300)
+        y_tanh = L * np.tanh(k * x_smooth)
+        ax.plot(x_smooth,
+        tanh_sigmoid(x_smooth, tanh["params"][0], tanh["params"][1]),
+        "r-", 
+        linewidth=2,
+        label=f"Tanh  AIC={tanh['aic']:.1f}  \n dAIC={d_tanh:.1f}  \n R^2={tanh['r2_mean']:.3f}")
+
+
+    # --- gestione legenda ---
+    handles, labels = ax.get_legend_handles_labels()
+    unique = dict(zip(labels, handles))
+
+    # ordina solo secondo legend_position
+    def sort_key(label):
+        if "Tanh" in label:
+            return 9999
+        pat = label.split()[0]
+        return legend_order.get(pat, 999)
+
+    sorted_items = sorted(unique.items(), key=lambda x: sort_key(x[0]))
+    sorted_labels, sorted_handles = zip(*sorted_items)
+
+    # --- assi centrali ---
+    ax.axhline(0, color="gray", linewidth=1, alpha=0.5)
+    ax.axvline(0, color="gray", linewidth=1, alpha=0.5)
+    ax.set_ylim(-20, 20)
+    ax.set_xlim(-40, 40)
+
+    # --- labels ---
+    ax.set_xlabel("Ideal mean Δθ (°)", fontsize=20)
+    ax.set_ylabel("Real mean Δθ (°)", fontsize=20)
+
+    # --- legenda ---
+    ax.legend(
+        sorted_handles,
+        sorted_labels,
+        bbox_to_anchor=(1.02,1),
+        loc="best",
+        fontsize=16,
+        frameon = False,
+        ncol=2  # se vuoi più colonne, aumentale
+    )
+
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])  # lascia spazio sotto per la legenda
+
+    # --- save ---
+    if output_folder:
+        os.makedirs(output_folder, exist_ok=True)
+        out_path = os.path.join(output_folder, "grouped_scatter.png")
+        fig.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"[plot_grouped_scatter] Saved: {out_path}")
+
+    plt.show()
+    plt.close(fig)
 
 def _plot_comparison(x, y, weights, results, output_folder):
     """Comparison plot of the three models with AIC in legend."""
@@ -220,6 +362,8 @@ def _plot_comparison(x, y, weights, results, output_folder):
 
     fig, ax = plt.subplots(figsize=(9, 6))
 
+    plt.rcParams['font.family'] = 'Times New Roman'
+
     # Scatter dati
     ax.scatter(x, y, s=weights * 50 + 10, color="black",
                alpha=0.7, label="Data", zorder=5)
@@ -227,7 +371,7 @@ def _plot_comparison(x, y, weights, results, output_folder):
     lin  = results["linear"]
     tanh = results["tanh"]
     log4 = results["logistic4"]
-
+    
     # Lineare
     d_lin = lin["aic"] - best_aic
     ax.plot(x_smooth, linear_model(x_smooth, lin["params"][0]),
@@ -257,8 +401,8 @@ def _plot_comparison(x, y, weights, results, output_folder):
                 #      f"AIC={log4['aic']:.1f}  dAIC={d_log4:.1f} R^2={log4['r2_mean']:.3f}")
                 label = f"Logistic4  AIC={log4['aic']:.1f}  dAIC={d_log4:.1f} R^2={log4['r2_mean']:.3f}")
 
-    ax.set_xlabel("Ideal mean Δθ (deg)", fontsize=20)
-    ax.set_ylabel("Real mean Δθ (deg)", fontsize=20)
+    ax.set_xlabel("Ideal mean Δθ (°)", fontsize=20)
+    ax.set_ylabel("Real mean Δθ (°)", fontsize=20)
     ax.legend(fontsize=14, loc="upper left")
     ax.grid(False, alpha=0.3)
     fig.tight_layout()
@@ -392,4 +536,4 @@ def fit_group_sigmoid(df, plot=True, output_folder=None):
         labels[i] = f"{"P" + str(df['trial'].iloc[i])}, {df['duration'].iloc[i]}s"
 
     return fit_models(x[mask], y[mask], weights=weights,
-                      plot=plot, output_folder=output_folder, labels=labels)
+                      plot=plot, output_folder=output_folder, labels=None)

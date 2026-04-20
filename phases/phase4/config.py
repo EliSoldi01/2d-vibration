@@ -1,14 +1,14 @@
 ﻿ARM        = "right"
-START_CELL = [7, 10]
+START_CELL = [11, 5]
 
-DATA_PATH     = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase3-Trajectory/Results/data_all_subjects_P3.xlsx"
-SUBJECTS_PATH = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase3-Trajectory/Results/Subjects/Subjects_list_P3.xlsx"
-PROTOCOL_PATH = "phases/phase3/protocol3.json"
-OUTPUT_ROOT   = "results/phase3"
+DATA_PATH     = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase4-ShiftedRight/Results/data_all_subjects_P4.xlsx"
+SUBJECTS_PATH = "C:/Users/Utente/Desktop/Elisa/Research/2D-vibration/Phase4-ShiftedRight/Results/Subjects/Subjects_list_P4.xlsx"
+PROTOCOL_PATH = "phases/phase4/protocol4.json"
+OUTPUT_ROOT   = "results/phase4"
 
 # --- Cosa eseguire ---
 DO_HEATMAPS                              = True
-DO_REGRESSIONS                           = True
+DO_REGRESSIONS                           = False
 DO_REGRESSION_ORIGINAL_DURATIONS_SUBJ   = True
 DO_REGRESSION_ORDERED_DURATIONS_SUBJ    = False
 DO_REGRESSION_ORIGINAL_DURATIONS_GLOBAL = True
@@ -24,5 +24,5 @@ UPDATE_GROUP_AVERAGE = True
 SAVE_PLOTS          = True
 
 # --- Filtri ---
-SUBJECTS_TO_PROCESS = ["S04"]
+SUBJECTS_TO_PROCESS = None
 PATTERNS_TO_PROCESS = ["001_000", "000_001"]

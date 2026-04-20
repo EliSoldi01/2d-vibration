@@ -398,7 +398,7 @@ def combine_images_vertical(subject_folder, subject_id, durations, mode="reps", 
 def save_subject_heatmaps(df, subject, protocol, output_folder="Results_", metric="vividness",
                           recalc_subject=True, start_pos=(11,5)):
     """Save heatmaps for a single subject."""
-    subj_folder = os.path.join(output_folder, "heatmaps", subject)
+    subj_folder = os.path.join(output_folder, subject)
     if os.path.exists(subj_folder) and not recalc_subject:
         print(f"[INFO] Skipping existing subject: {subject}")
         return
@@ -432,7 +432,7 @@ def save_subject_heatmaps(df, subject, protocol, output_folder="Results_", metri
 
 def save_all_subjects_heatmaps(df, protocol, output_folder="Results_", metric="vividness", start_pos=(11,5)):
     """Save average heatmaps across all subjects."""
-    all_folder = os.path.join(output_folder, "heatmaps", "ALL_SUBJECTS")
+    all_folder = os.path.join(output_folder, "ALL_SUBJECTS")
     os.makedirs(all_folder, exist_ok=True)
     cols = _get_columns(protocol)
     durations = sorted(df["duration"].unique())

@@ -260,6 +260,7 @@ def create_subject_and_global_excel(df, protocol, subject_output_folder):
         for D in durations:
             ideal       = Kb_global * pb * D + Kt_global * pt * D
             real_values = []
+            vividness_values = []
             for subj in subjects:
                 subset = df[
                     (df["subject"] == subj) &
@@ -270,12 +271,14 @@ def create_subject_and_global_excel(df, protocol, subject_output_folder):
                     real_values.append(
                         np.average(subset["angle_deg"], weights=subset["vividness"] / 3)
                     )
+                    vividness_values.append(np.average(subset["vividness"]))
             group_rows.append({
                 "trial": subset["trial"].iloc[0] if not subset.empty else np.nan,
                 "pattern":     pattern,
                 "duration":    D,
                 "ideal_angle": ideal,
                 "real_mean":   np.nanmean(real_values) if real_values else np.nan,
+                "vividness_mean": np.nanmean(vividness_values) if vividness_values else np.nan
             })
 
     group_validation_df = pd.DataFrame(group_rows)
@@ -322,5 +325,56 @@ def create_subject_and_global_excel(df, protocol, subject_output_folder):
         group_validation_df.round(3).to_excel(
             writer, sheet_name="Validation", index=False
         )
+
+    import scipy.stats as stats
+        # --- INIZIO BLOCCO TEST STATISTICO ---
+
+    # 1. Estrazione dei coefficienti (usiamo il valore assoluto per Kt perché è negativo)
+    # Confrontiamo la "sensibilità" o "guadagno" dei due muscoli
+    kb_samples = []
+    kt_abs_samples = []
+
+    for subj, p in all_params.items():
+        if not np.isnan(p['Kb']) and not np.isnan(p['Kt']):
+            kb_samples.append(p['Kb'])
+            kt_abs_samples.append(abs(p['Kt']))
+
+    # 2. Esecuzione del test (Wilcoxon è l'alternativa non-parametrica al paired t-test)
+    # È più robusto se i soggetti sono pochi o se i dati non sono perfettamente normali
+    stat, p_value = stats.wilcoxon(kb_samples, kt_abs_samples)
+
+    # 3. Preparazione dei risultati per Excel
+    stats_results = pd.DataFrame({
+        "Metric": ["Mean Kb", "Std Kb", "Mean |Kt|", "Std |Kt|", "Difference (Kb - |Kt|)", "Wilcoxon Stat", "p-value"],
+        "Value": [
+            np.mean(kb_samples), 
+            np.std(kb_samples), 
+            np.mean(kt_abs_samples), 
+            np.std(kt_abs_samples),
+            np.mean(kb_samples) - np.mean(kt_abs_samples),
+            stat, 
+            p_value
+        ]
+    })
+
+    # Aggiungi un'interpretazione rapida
+    stats_results["Significance"] = stats_results["Value"].apply(
+        lambda x: "p < 0.05 (*)" if p_value < 0.05 else "n.s." 
+        if isinstance(x, float) and x == p_value else ""
+    )
+
+    # 4. Salvataggio in una nuova pagina del file Excel
+    with pd.ExcelWriter(group_file, engine="openpyxl", mode='a') as writer:
+        stats_results.to_excel(writer, sheet_name="Kb_vs_Kt_Test", index=False)
+
+    print(f"\n[STAT TEST] Confronto Kb vs |Kt|: p-value = {p_value:.4f}")
+    if p_value < 0.05:
+        print("-> Esiste una differenza significativa tra l'efficacia di Bicipite e Tricipite.")
+    else:
+        print("-> Non sono state trovate differenze significative tra i due muscoli.")
+
+    # --- FINE BLOCCO TEST STATISTICO ---
+
+
 
     return all_params, validation_dfs, Kb_global, Kt_global, group_validation_df

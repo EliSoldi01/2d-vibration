@@ -2,7 +2,7 @@
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import warnings
-import phases.phase2.config as cfg
+import phases.phase4.config as cfg
 
 from core.data_io         import load_data, validate_data
 from core.utils           import geometry, ordering
@@ -15,7 +15,7 @@ from core.visualization   import plot_regressions as plot_regression
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-print("RUNNING PHASE 2 ANALYSIS")
+print("RUNNING PHASE 4 ANALYSIS")
 print("-" * 90)
 
 # --- Output folders ---
@@ -44,7 +44,8 @@ if not validate_data.validate_subject_data(df, protocol):
     raise ValueError("Subject data not valid!")
 print("Data validated successfully.")
 
-# --- Arricchimento su df completo ---
+# --- Adding angle column and presentation order ---
+df["duration"] = df["duration"].astype(int)
 df = geometry.add_angle_column(df, cfg.START_CELL, arm=cfg.ARM)
 subject_orders = subject_info.set_index("subject")["block_order"].astype(str).to_dict()
 df = ordering.add_presentation_order(df, subject_orders, duration_col="duration")
@@ -53,20 +54,36 @@ print("Presentation order and positions added.")
 
 enriched_path = os.path.join(OUT, "data_with_angles_and_presentation.xlsx")
 df.to_excel(enriched_path, index=False, engine="openpyxl")
-print(f"✅ DataFrame completo salvato in: {enriched_path}")
+print(f"✅ DataFrame saved in: {enriched_path}")
 print("-" * 90)
 
-# --- Filtro soggetti e pattern ---
-# df resta intatto (dataset completo)
-# df_analysis è il sottoinsieme usato da tutte le analisi successive
 subjects_list = df["subject"].unique() if cfg.SUBJECTS_TO_PROCESS is None else cfg.SUBJECTS_TO_PROCESS
 patterns_list = df["pattern_pair"].unique() if cfg.PATTERNS_TO_PROCESS is None else cfg.PATTERNS_TO_PROCESS
-df_analysis   = df[df["subject"].isin(subjects_list)].copy()
-metrics_df    = df_analysis.copy()
+
+# df_analysis è il sottoinsieme filtrato usato da tutte le analisi
+# df originale resta intatto nel caso serva per confronti
+df_analysis = df[df["subject"].isin(subjects_list)].copy()
+metrics_df  = df_analysis.copy()
 
 print(f"Subjects to analyze: {list(subjects_list)}")
 print(f"Patterns to analyze: {list(patterns_list)}")
 print("-" * 90)
+
+# --- Heatmaps ---
+if cfg.DO_HEATMAPS:
+    print("Generating heatmaps...")
+    for subj in subjects_list:
+        heatmaps.save_subject_heatmaps(
+            df, subj, protocol,
+            output_folder=OUT_HEATMAPS,
+            metric="vividness",
+            recalc_subject=cfg.RECALC_SUBJECT,
+            start_pos=(11,5)
+        )
+    if cfg.UPDATE_GROUP_AVERAGE:
+        heatmaps.save_all_subjects_heatmaps(df_analysis, protocol, output_folder=OUT_HEATMAPS, metric="vividness",start_pos=(12,3))
+else:
+    print("SKIPPING heatmaps")
 
 # --- Model parameters ---
 if cfg.DO_MODEL_PARAMETERS:
@@ -83,7 +100,7 @@ if cfg.DO_REGRESSIONS:
     print("Doing regression plots...")
     for pat in patterns_list:
         for subj in subjects_list:
-            subj_df = df_analysis[df_analysis["subject"] == subj].copy()
+            subj_df = df[df["subject"] == subj].copy()
 
             if cfg.DO_REGRESSION_ORIGINAL_DURATIONS_SUBJ:
                 print(f"  Plotting {subj} | {pat} | duration...")
@@ -119,25 +136,6 @@ if cfg.DO_REGRESSIONS:
 else:
     print("SKIPPING regression plots")
 
-# --- Heatmaps ---
-if cfg.DO_HEATMAPS:
-    print("Generating heatmaps...")
-    for subj in subjects_list:
-        heatmaps.save_subject_heatmaps(
-            df_analysis, subj, protocol,
-            output_folder=OUT_HEATMAPS,
-            metric="vividness",
-            recalc_subject=cfg.RECALC_SUBJECT
-        )
-    if cfg.UPDATE_GROUP_AVERAGE:
-        heatmaps.save_all_subjects_heatmaps(
-            df_analysis, protocol,
-            output_folder=OUT_HEATMAPS,
-            metric="vividness"
-        )
-else:
-    print("SKIPPING heatmaps")
-
 # --- Std Excel ---
 if cfg.DO_STD_EXCEL:
     print("Generating std normalized Excel...")
@@ -157,7 +155,7 @@ if cfg.DO_SIGMOID_FIT:
     else:
         print("Fitting sigmoid to group validation data...")
         print(group_validation_df.head())
-        fit_group_sigmoid(group_validation_df, True, output_folder=OUT_VAL)
+        fit_group_sigmoid(group_validation_df, plot=True, output_folder=OUT_VAL)
 else:
     print("SKIPPING sigmoid fit")
 

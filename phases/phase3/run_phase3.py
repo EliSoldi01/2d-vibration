@@ -27,10 +27,10 @@ traj_df = traj.build_trajectory_df(df_analysis, subject_info, protocol)
 # plot
 for subj in subjects_list:
     subject_dir = os.path.join(OUT_TRAJ, subj)
-    traj.plot_trajectories_single_reps(traj_df, protocol, output_folder=subject_dir, show_ideal_arc = True)
-    traj.plot_all_reps_trajectories(traj_df, protocol, output_folder=subject_dir)
-    #traj.plot_all_mean_timeseries(traj_df, protocol,output_folder=subject_dir)
-    #traj.plot_all_mean_trajectories(traj_df, protocol,output_folder=subject_dir)
+    #traj.plot_trajectories_single_reps(traj_df, protocol, output_folder=subject_dir, show_ideal_arc = True)
+    #traj.plot_all_reps_trajectories(traj_df, protocol, output_folder=subject_dir)
+    traj.plot_all_mean_timeseries(traj_df, protocol,output_folder=subject_dir)
+    traj.plot_all_mean_trajectories(traj_df, protocol,output_folder=subject_dir)
 
 # metriche per analisi successiva
 #metrics_df = compute_trajectory_metrics(traj_df)
