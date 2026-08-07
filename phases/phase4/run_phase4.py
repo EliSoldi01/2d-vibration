@@ -8,7 +8,7 @@ from core.data_io         import load_data, validate_data
 from core.utils           import geometry, ordering
 from core.utils.create_std_excel                import create_std_normalized_excel
 from core.analysis.extract_model_parameters     import create_subject_and_global_excel
-from core.analysis.model_fit                    import fit_group_sigmoid
+from core.analysis.model_fit                    import fit_group_sigmoid, plot_grouped_scatter
 from core.analysis.cross_validation             import loocv_leave_one_subject
 from core.visualization   import heatmaps
 from core.visualization   import plot_regressions as plot_regression
@@ -72,16 +72,17 @@ print("-" * 90)
 # --- Heatmaps ---
 if cfg.DO_HEATMAPS:
     print("Generating heatmaps...")
-    for subj in subjects_list:
-        heatmaps.save_subject_heatmaps(
-            df, subj, protocol,
-            output_folder=OUT_HEATMAPS,
-            metric="vividness",
-            recalc_subject=cfg.RECALC_SUBJECT,
-            start_pos=(11,5)
+    if cfg.DO_SINGLE_SUBJECT_HEATMAPS:
+        for subj in subjects_list:
+            heatmaps.save_subject_heatmaps(
+                df_analysis, subj, protocol,
+                output_folder=OUT_HEATMAPS,
+                metric="vividness",
+                recalc_subject=cfg.RECALC_SUBJECT,
+                start_pos=cfg.START_CELL
         )
     if cfg.UPDATE_GROUP_AVERAGE:
-        heatmaps.save_all_subjects_heatmaps(df_analysis, protocol, output_folder=OUT_HEATMAPS, metric="vividness",start_pos=(12,3))
+        heatmaps.save_all_subjects_heatmaps(df, protocol, output_folder=OUT_HEATMAPS, metric="vividness",start_pos=cfg.START_CELL, initial_angle=cfg.INITIAL_ANGLE)
 else:
     print("SKIPPING heatmaps")
 
@@ -89,7 +90,7 @@ else:
 if cfg.DO_MODEL_PARAMETERS:
     print("Doing model parameters extraction and global validation...")
     all_params, validation_dfs, Kb_global, Kt_global, group_validation_df = create_subject_and_global_excel(
-        df_analysis, protocol, OUT_SUBJ_MOD
+        df, protocol, OUT_SUBJ_MOD
     )
     print(f"Global Kb={Kb_global:.3f}, Kt={Kt_global:.3f}")
 else:
@@ -155,14 +156,23 @@ if cfg.DO_SIGMOID_FIT:
     else:
         print("Fitting sigmoid to group validation data...")
         print(group_validation_df.head())
-        fit_group_sigmoid(group_validation_df, plot=True, output_folder=OUT_VAL)
+        results = fit_group_sigmoid(group_validation_df, plot=True, output_folder=OUT_VAL)
+
+        plot_grouped_scatter(
+            group_validation_df,
+            selected_patterns=None,
+            protocol_path=cfg.PROTOCOL_PATH,
+            output_folder=os.path.join(cfg.OUTPUT_ROOT, "plots"),
+            results=results
+        )
+        group_validation_df.to_excel("group_validation_df.xlsx", index=False) 
 else:
     print("SKIPPING sigmoid fit")
 
 # --- Cross validation ---
 if cfg.DO_CROSS_VALIDATION:
     print("Running LOOCV...")
-    loocv_df = loocv_leave_one_subject(df_analysis, os.path.join(OUT_VAL, "LOOCV_sklearn.xlsx"))
+    loocv_df = loocv_leave_one_subject(df, os.path.join(OUT_VAL, "LOOCV_sklearn.xlsx"))
 else:
     print("SKIPPING cross validation")
 

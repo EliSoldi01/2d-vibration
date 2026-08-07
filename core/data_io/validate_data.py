@@ -52,6 +52,7 @@ def validate_subject_data(df, protocol):
 
     # Check x, y ranges
     NX, NY = 21, 9
+    if protocol["name"] == "Protocol4": NY = 10
     if not df["x"].between(1, NX).all():
         errors.append("Some x coordinates are out of range")
     if not df["y"].between(1, NY).all():

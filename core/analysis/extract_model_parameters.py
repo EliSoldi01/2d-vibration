@@ -299,7 +299,7 @@ def create_subject_and_global_excel(df, protocol, subject_output_folder):
         params_df = params_df[[
             "Kb", "R2_Kb",
             "Kt", "R2_Kt",
-            "R2_full", "MAE_full", "RMSE_full",
+            "R2_full", "MAE_full", "RMSE_full"
         ]]
         params_df.columns = [
             "Kb",
@@ -308,7 +308,7 @@ def create_subject_and_global_excel(df, protocol, subject_output_folder):
             "R²_zero (Kt fit)",
             "R²_zero (full model)",
             "MAE (full model) [°]",
-            "RMSE (full model) [°]",
+            "RMSE (full model) [°]"
         ]
         params_df.loc["GLOBAL"] = {
             "Kb":                    Kb_global,
@@ -317,10 +317,22 @@ def create_subject_and_global_excel(df, protocol, subject_output_folder):
             "R²_zero (Kt fit)":      R2_Kt_global,
             "R²_zero (full model)":  global_metrics["R2_zero"],
             "MAE (full model) [°]":  global_metrics["MAE"],
-            "RMSE (full model) [°]": global_metrics["RMSE"],
+            "RMSE (full model) [°]": global_metrics["RMSE"]
         }
         params_df.round(3).to_excel(writer, sheet_name="Parameters", index=True)
 
+        kb_values = [p["Kb"] for p in all_params.values() if not np.isnan(p["Kb"])]
+        kt_values = [p["Kt"] for p in all_params.values() if not np.isnan(p["Kt"])]
+
+        kb_mean = np.mean(kb_values)
+        kb_std  = np.std(kb_values, ddof=1)
+
+        kt_mean = np.mean(kt_values)
+        kt_std  = np.std(kt_values, ddof=1)
+
+        print(f"Kb = {kb_mean:.3f} ± {kb_std:.3f}")
+        print(f"Kt = {kt_mean:.3f} ± {kt_std:.3f}")
+        
         # Sheet 2: Global validation table (means — input for sigmoid fit)
         group_validation_df.round(3).to_excel(
             writer, sheet_name="Validation", index=False

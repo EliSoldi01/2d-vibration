@@ -157,9 +157,9 @@ def plot_loocv_mae_vs_r2_vividness(results_df, df, output_folder=None,
     sc = plt.scatter(results_df[mae_col], results_df[r2_col],
                      c=vividness_mean, cmap='Reds', s=150, alpha=0.8, vmin=1, vmax=3)
     
-    plt.xlabel('MAE (°)', fontsize=12)
-    plt.ylabel(f'R² ({r2_col})', fontsize=12)
-    plt.title('LOOCV Performance: MAE vs R² per subject (color = mean vividness)', fontsize=14)
+    plt.xlabel('MAE (°)', fontsize=16)
+    plt.ylabel(f'R²', fontsize=16)
+    plt.title('Leave-One-Subject-Out Cross-Validation', fontsize=18)
     plt.grid(True, alpha=0.3)
     plt.xlim(0, max(results_df[mae_col])*1.5)
     
@@ -169,7 +169,7 @@ def plot_loocv_mae_vs_r2_vividness(results_df, df, output_folder=None,
                      xytext=(5,5), textcoords='offset points', fontsize=9)
     
     cbar = plt.colorbar(sc)
-    cbar.set_label('Mean Vividness', rotation=270, labelpad=15)
+    cbar.set_label('Mean Vividness', rotation=270, labelpad=15, size=16)
     cbar.set_ticks([1, 1.5, 2, 2.5, 3])
     
     plt.tight_layout()

@@ -2,6 +2,9 @@
   "name": "Protocol3",
   "blocks": {
     "durations": [3],
+        "duration_markers": {
+    "3": "^"
+  },
     "order": "randomized"
   },
 

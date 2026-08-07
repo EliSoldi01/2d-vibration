@@ -72,13 +72,14 @@ print("-" * 90)
 # --- Heatmaps ---
 if cfg.DO_HEATMAPS:
     print("Generating heatmaps...")
-    """for subj in subjects_list:
-        heatmaps.save_subject_heatmaps(
-            df, subj, protocol,
-            output_folder=OUT_HEATMAPS,
-            metric="vividness",
-            recalc_subject=cfg.RECALC_SUBJECT
-        )"""
+    if cfg.DO_SINGLE_SUBJECT_HEATMAPS:
+        for subj in subjects_list:
+            heatmaps.save_subject_heatmaps(
+                df, subj, protocol,
+                output_folder=OUT_HEATMAPS,
+                metric="vividness",
+                recalc_subject=cfg.RECALC_SUBJECT
+            )
     if cfg.UPDATE_GROUP_AVERAGE:
         heatmaps.save_all_subjects_heatmaps(df_analysis, protocol, output_folder=OUT_HEATMAPS, metric="vividness")
 else:

@@ -111,8 +111,7 @@ def _draw_pattern_legend(fig, pattern_colors, ordered_patterns, title=None, extr
                  ha="center",
                  va="bottom",
                  fontsize=15)
-
-
+    
 # -----------------------------
 # Plotting functions
 # -----------------------------
@@ -131,7 +130,7 @@ def plot_heatmap(df, filename, title, protocol, metric="vividness", start_pos=(1
         ylim = (1, protocol["grid"]["y"])
 
     fig, ax = plt.subplots(figsize=(12,5))
-    ax.set_title(title, pad=60)
+    ax.set_title(title, pad=60, fontsize = 18, fontweight='bold')
     _draw_circles(ax, df, cols, metric, pattern_colors, scale_max, start_pos)
     _setup_ax(ax, xlim, ylim)
 
@@ -142,104 +141,11 @@ def plot_heatmap(df, filename, title, protocol, metric="vividness", start_pos=(1
         ordered_patterns
     )
 
-    ax.set_xlabel("X position")
-    ax.set_ylabel("Y position")
+    ax.set_xlabel("Mediolateral axis")
+    ax.set_ylabel("Anteroposterior axis")
     fig.subplots_adjust(top=0.75)
     plt.savefig(filename, dpi=150, bbox_inches="tight")
     plt.close()
-
-def plot_heatmap_abstract(df, durations, protocol, filename, subject_id="ALL", metric="vividness", start_pos=(11,5)):
-    """
-    Crea un unico plot orizzontale con n pannelli (uno per durata).
-    - Unica legenda globale in alto.
-    - Formule degli archi posizionate sotto ogni arco.
-    - Colori uniformati (Extension, Flexion, Neutral).
-    """
-    n = len(durations)
-    cols = _get_columns(protocol)
-    scale_max = max(protocol['scales'][metric]['values'])
-    
-    # Creazione figura: sharey=True permette un confronto onesto delle altezze degli archi
-    fig, axes = plt.subplots(1, n, figsize=(5 * n, 5), sharey=True)
-    if n == 1: axes = [axes]
-
-    # Mappatura colori fissa per l'abstract
-    color_map_abstract = {
-        "extension": "#ffa100",
-        "flexion": "#3164a5",
-        "neutral": "#b7b2b8"
-    }
-    #color_map_abstract = {
-    #    "data": "#b7b2b8"
-    #}
-
-    for i, dur in enumerate(durations):
-        ax = axes[i]
-        df_dur = df[df["duration"] == dur]
-        
-        # Se i dati sono mediati (come in save_all_subjects_heatmaps), raggruppiamo
-        df_mean = df_dur.groupby([cols["pattern_pair"], cols["rep"]]).agg({
-            cols["x"]: "mean",
-            cols["y"]: "mean",
-            metric: "mean"
-        }).reset_index()
-
-        # 1. Setup asse (Griglia e limiti)
-        ax.set_title(f"Duration: {dur}s", fontsize=18, fontweight='bold', pad=10)
-        _setup_ax(ax, (1, protocol["grid"]["x"]), (1, protocol["grid"]["y"]))
-        
-        # 2. Disegno Cerchi con colori uniformati
-        for _, row in df_mean.iterrows():
-            pair = str(row[cols["pattern_pair"]]).lower()
-            if pair in ["111_000", "011_000", "011_100", "001_000"]: color = color_map_abstract["extension"]
-            elif  pair in ["000_111", "000_011", "100_011", "000_001"]: color = color_map_abstract["flexion"]
-            else: color = color_map_abstract["neutral"]
-            
-            radius = 0.5 * (row[metric] / scale_max)
-            ax.add_patch(plt.Circle((row[cols["x"]], row[cols["y"]]), radius, 
-                                    color=color, fill=False, linewidth=1.8, alpha=0.7))
-        
-        # Punto di partenza (X rossa)
-        ax.scatter(*start_pos, c="red", s=100, marker="x", zorder=10)
-
-        # 3. Fit dell'Arco e Formula
-        x_vals, y_vals = df_mean[cols["x"]].values, df_mean[cols["y"]].values
-        if len(x_vals) > 2:
-            z = np.polyfit(x_vals, y_vals, 2)
-            p = np.poly1d(z)
-            x_new = np.linspace(x_vals.min(), x_vals.max(), 100)
-            
-            # Disegno Arco
-            ax.plot(x_new, p(x_new), color="black", lw=2, linestyle='-', alpha=0.8, zorder=5)
-            
-            
-            # POSIZIONAMENTO: Ultima riga, centro dell'arco
-            # Usiamo grid_y_max per forzare la scritta in fondo alla matrice
-            formula_txt = f"$y = {z[0]:.2f}x^2 + {z[1]:.2f}x + {z[2]:.2f}$"
-            ax.text(np.mean(x_new), 2, formula_txt, 
-                    color="black", fontsize=16, ha="center", va="center",
-                    bbox=dict(facecolor='white', alpha=0.9, edgecolor='none', pad=1))
-
-        ax.set_xlabel("X position", fontsize=16)
-        if i == 0: ax.set_ylabel("Y position", fontsize=16)
-
-    # 4. Legenda Globale Semplificata
-    handles = [
-        mpatches.Patch(color=color_map_abstract["extension"], label="Extension"),
-        mpatches.Patch(color=color_map_abstract["flexion"], label="Flexion"),
-        mpatches.Patch(color=color_map_abstract["neutral"], label="Neutral"),
-        Line2D([0], [0], color='black', lw=2, label="Quadratic Fit"),
-        Line2D([0], [0], color='red', marker='x', linestyle='None', 
-               markersize=8, markeredgewidth=2, label='Start Position'),
-    ]
-    
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.98),
-               ncol=5, frameon=False, fontsize=15)
-
-    plt.tight_layout()
-    plt.savefig(filename, dpi=300, bbox_inches="tight")
-    plt.close()
-    print(f"[SUCCESS] Plot combinato salvato in: {filename}")
 
 def plot_heatmap_paper(df, durations, protocol, filename, subject_id="ALL", metric="vividness", start_pos=(11,5)):
     """
@@ -262,7 +168,7 @@ def plot_heatmap_paper(df, durations, protocol, filename, subject_id="ALL", metr
         ax = axes[i]
         df_dur = df[df["duration"] == dur]
         
-        # Se i dati sono mediati (come in save_all_subjects_heatmaps), raggruppiamo
+        # Dati sono mediati (come in save_all_subjects_heatmaps), raggruppiamo
         df_mean = df_dur.groupby([cols["pattern_pair"], cols["rep"]]).agg({
             cols["x"]: "mean",
             cols["y"]: "mean",
@@ -303,8 +209,8 @@ def plot_heatmap_paper(df, durations, protocol, filename, subject_id="ALL", metr
                     color="black", fontsize=16, ha="center", va="center",
                     bbox=dict(facecolor='white', alpha=0.9, edgecolor='none', pad=1))
 
-        ax.set_xlabel("X position", fontsize=16)
-        if i == 0: ax.set_ylabel("Y position", fontsize=16)
+        ax.set_xlabel("Mediolateral axis", fontsize=16)
+        if i == 0: ax.set_ylabel("Anteroposterior axis", fontsize=16)
 
     # 4. Legenda Globale Semplificata
         extra_handles = [
@@ -364,10 +270,10 @@ def plot_reps(df, subject_id, filename, protocol, metric="vividness", start_pos=
 # Image combining
 # -----------------------------
 
-def combine_images_vertical(subject_folder, subject_id, durations, mode="reps", output_name=None):
+def combine_images(subject_folder, subject_id, durations, mode="reps", layout = "horizontal",output_name=None):
     images = []
     filename_template = "{sid}_{mode}_{dur}s.png".format(sid=subject_id, mode=mode, dur="{dur}")
-    for dur in durations:
+    for dur in durations[1:]:
         img_path = os.path.join(subject_folder, f"duration_{dur}s", filename_template.format(dur=dur))
         if not os.path.exists(img_path):
             print(f"[WARNING] Missing file: {img_path}")
@@ -379,17 +285,23 @@ def combine_images_vertical(subject_folder, subject_id, durations, mode="reps", 
         return
 
     widths, heights = zip(*(img.size for img in images))
-    combined = Image.new("RGB", (max(widths), sum(heights)), "white")
-    y_offset = 0
-    for img in images:
-        combined.paste(img, (0, y_offset))
-        y_offset += img.size[1]
+    
+    if layout == "horizontal":
+        combined = Image.new("RGB", (sum(widths), max(heights)), "white")
+        x_offset = 0
+        for img in images:
+            combined.paste(img, (x_offset, 0))
+            x_offset += img.size[0]
+    elif layout == "vertical":
+        combined = Image.new("RGB", (max(widths), sum(heights)), "white")
+        y_offset = 0
+        for img in images:
+            combined.paste(img, (0, y_offset))
+            y_offset += img.size[1]
 
     if output_name is None:
         output_name = f"{subject_id}_{mode}_ALL_durations_vertical.png"
     combined.save(os.path.join(subject_folder, output_name))
-
-
 
 # -----------------------------
 # Save functions
@@ -414,7 +326,7 @@ def save_subject_heatmaps(df, subject, protocol, output_folder="Results_", metri
         # global heatmap
         plot_heatmap(df_dur,
                      os.path.join(dur_folder, f"{subject}_global_{dur}s.png"),
-                     f"{subject} – Global Heatmap ({dur}s)",
+                     f"{subject} – ({dur}s)",
                      protocol, metric=metric, start_pos=start_pos)
 
         # reps
@@ -425,12 +337,12 @@ def save_subject_heatmaps(df, subject, protocol, output_folder="Results_", metri
                   metric=metric,
                   start_pos=start_pos)
 
-    combine_images_vertical(subj_folder, subject, durations, mode="reps",
+    combine_images(subj_folder, subject, durations, mode="reps", layout="vertical",
                             output_name=f"reps_{subject}_durations_vertical.png")
-    combine_images_vertical(subj_folder, subject, durations, mode="global",
+    combine_images(subj_folder, subject, durations, mode="global",
                             output_name=f"global_{subject}_durations_vertical.png")
 
-def save_all_subjects_heatmaps(df, protocol, output_folder="Results_", metric="vividness", start_pos=(11,5)):
+def save_all_subjects_heatmaps(df, protocol, output_folder="Results_", metric="vividness", start_pos=(11,5), initial_angle = 90):
     """Save average heatmaps across all subjects."""
     all_folder = os.path.join(output_folder, "ALL_SUBJECTS")
     os.makedirs(all_folder, exist_ok=True)
@@ -450,7 +362,7 @@ def save_all_subjects_heatmaps(df, protocol, output_folder="Results_", metric="v
 
         plot_heatmap(df_mean,
                      os.path.join(dur_folder, f"ALL_global_{dur}s.png"),
-                     f"ALL Subjects – Global Heatmap ({dur}s)",
+                     f"ALL Subjects – ({dur}s)",
                      protocol, metric=metric, start_pos=start_pos)
         
         
@@ -461,16 +373,18 @@ def save_all_subjects_heatmaps(df, protocol, output_folder="Results_", metric="v
                   protocol=protocol,
                   metric=metric,
                   start_pos=start_pos)
-     
+    
+    file_name = "Figure2A_" + str(initial_angle) + ".png"
     plot_heatmap_paper(
             df=df, 
             durations=durations[1:], 
             protocol=protocol, 
-            filename=os.path.join(all_folder, "Figure2A.png"),
-            subject_id="ALL_SUBJECTS"
+            filename=os.path.join(all_folder, file_name),
+            subject_id="ALL_SUBJECTS",
+            start_pos=start_pos
     )
 
-    combine_images_vertical(all_folder, "ALL", durations, mode="reps",
+    combine_images(all_folder, "ALL", durations, mode="reps", layout="vertical",
                             output_name="ALL_reps_ALL_durations_vertical.png")
-    combine_images_vertical(all_folder, "ALL", durations, mode="global",
+    combine_images(all_folder, "ALL", durations, mode="global",
                             output_name="ALL_global_ALL_durations_vertical.png")

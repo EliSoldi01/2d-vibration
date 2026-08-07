@@ -8,7 +8,7 @@ from core.data_io         import load_data, validate_data
 from core.utils           import geometry, ordering
 from core.utils.create_std_excel                import create_std_normalized_excel
 from core.analysis.extract_model_parameters     import create_subject_and_global_excel
-from core.analysis.model_fit                    import fit_group_sigmoid
+from core.analysis.model_fit                    import fit_group_sigmoid, plot_grouped_scatter
 from core.analysis.cross_validation             import loocv_leave_one_subject
 from core.visualization   import heatmaps
 from core.visualization   import plot_regressions as plot_regression
@@ -157,7 +157,16 @@ if cfg.DO_SIGMOID_FIT:
     else:
         print("Fitting sigmoid to group validation data...")
         print(group_validation_df.head())
-        fit_group_sigmoid(group_validation_df, True, output_folder=OUT_VAL)
+        results = fit_group_sigmoid(group_validation_df, plot=True, output_folder=OUT_VAL)
+
+        plot_grouped_scatter(
+            group_validation_df,
+            selected_patterns=None,
+            protocol_path=cfg.PROTOCOL_PATH,
+            output_folder=os.path.join(cfg.OUTPUT_ROOT, "plots"),
+            results=results
+        )
+        group_validation_df.to_excel("group_validation_df.xlsx", index=False) 
 else:
     print("SKIPPING sigmoid fit")
 

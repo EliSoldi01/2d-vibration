@@ -1,3 +1,5 @@
+from cProfile import label
+
 import numpy as np
 import os
 import logging
@@ -211,6 +213,21 @@ def _print_summary(results):
     print(f"\n  AIC: lower = better | DELTA > 2 significativo | > 6 sostanziale")
     print("=================================================================\n")
 
+def get_best_model(results):
+    """
+    Return the best fitted model according to AIC.
+    """
+    valid_models = {
+        k: v for k, v in results.items()
+        if v.get("ok", False) and not np.isnan(v["aic"])
+    }
+
+    if not valid_models:
+        return None, None
+
+    best_name = min(valid_models, key=lambda k: valid_models[k]["aic"])
+    return best_name, valid_models[best_name]
+
 def plot_grouped_scatter(
     df,
     selected_patterns=None,
@@ -237,7 +254,7 @@ def plot_grouped_scatter(
     tanh_params = results["tanh"]["params"] if results.get("tanh", {}).get("ok") else None
     valid_aics = {k: r["aic"] for k, r in results.items() if not np.isnan(r["aic"])}
     best_aic = min(valid_aics.values())
-    x_smooth = np.linspace(-40, 40, 300)
+    x_smooth = np.linspace(df['ideal_angle'].min(), df['ideal_angle'].max(), 300)
 
     # --- filtro durata ---
     df = df[df['duration'] != 0]
@@ -248,9 +265,6 @@ def plot_grouped_scatter(
 
     plt.rcParams['font.family'] = 'Times New Roman'
     fig, ax = plt.subplots(figsize=(12, 7))
-
-    # --- marker per durata ---
-    marker_map = {1: 'o', 3: '^', 6: 's'}
 
     # --- colori da protocol.json ---
     colors = {}
@@ -267,6 +281,24 @@ def plot_grouped_scatter(
             if text and color:
                 colors[text] = color
                 legend_order[text] = pos
+
+    # --- marker per durata ---
+    marker_map = {}
+
+    if protocol:
+        duration_markers = protocol.get("blocks", {}).get("duration_markers", {})
+
+        for duration, marker in duration_markers.items():
+            marker_map[int(duration)] = marker
+
+    # fallback
+    if not marker_map:
+        marker_map = {
+            3: 'o',
+            6: '^',
+            9: 's',
+            15: 'D'
+        }
 
     # fallback colori automatici
     missing_patterns = set(df['pattern'].unique()) - set(colors.keys())
@@ -292,27 +324,83 @@ def plot_grouped_scatter(
         )
 
     # --- TANH overlay ---
-    tanh = results["tanh"]
-    d_tanh = tanh["aic"] - best_aic
-    if tanh_params is not None:
-        L, k = tanh_params
-        x_smooth = np.linspace(df['ideal_angle'].min(), df['ideal_angle'].max(), 300)
-        y_tanh = L * np.tanh(k * x_smooth)
-        ax.plot(x_smooth,
-        tanh_sigmoid(x_smooth, tanh["params"][0], tanh["params"][1]),
-        "r-", 
-        linewidth=2,
-        label=f"Tanh  AIC={tanh['aic']:.1f}  \n dAIC={d_tanh:.1f}  \n R^2={tanh['r2_mean']:.3f}")
+    # tanh = results["tanh"]
+    #d_tanh = tanh["aic"] - best_aic
+    #if tanh_params is not None:
+    #    L, k = tanh_params
+    #    x_smooth = np.linspace(df['ideal_angle'].min(), df['ideal_angle'].max(), 300)
+    #    y_tanh = L * np.tanh(k * x_smooth)
+    #    ax.plot(x_smooth,
+    #    tanh_sigmoid(x_smooth, tanh["params"][0], tanh["params"][1]),
+    #    "r-", 
+    #    linewidth=2,
+    #    label=f"Tanh  AIC={tanh['aic']:.1f}  \n dAIC={d_tanh:.1f}  \n R^2={tanh['r2_mean']:.3f}")
+
+    # --- BEST MODEL overlay ---
+    best_name, best_model = get_best_model(results)
+
+    if best_model is not None:
+
+        d_best = best_model["aic"] - best_aic
+
+        if best_name == "linear":
+
+            y_fit = linear_model(
+                x_smooth,
+                best_model["params"][0]
+            )
+
+            style = "b--"
 
 
-    # --- gestione legenda ---
-    handles, labels = ax.get_legend_handles_labels()
-    unique = dict(zip(labels, handles))
+        elif best_name == "tanh":
+
+            y_fit = tanh_sigmoid(
+                x_smooth,
+                best_model["params"][0],
+                best_model["params"][1]
+            )
+
+            style = "r-"
+
+
+        elif best_name == "logistic4":
+
+            p = best_model["params"]
+
+            y_fit = logistic_sigmoid(
+                x_smooth,
+                p[0],
+                p[1],
+                p[2],
+                p[3]
+            )
+
+            style = "g-."
+
+
+        ax.plot(
+            x_smooth,
+            y_fit,
+            style,
+            linewidth=2,
+            label=(
+                f"{best_name} (best AIC)\n"
+                f"AIC={best_model['aic']:.1f}\n"
+                f"ΔAIC={d_best:.1f}\n"
+                f"R²={best_model['r2_mean']:.3f}"
+            )
+        )
+        
+        # --- gestione legenda ---
+        handles, labels = ax.get_legend_handles_labels()
+        unique = dict(zip(labels, handles))
 
     # ordina solo secondo legend_position
     def sort_key(label):
-        if "Tanh" in label:
+        if "(best AIC)" in label:
             return 9999
+    
         pat = label.split()[0]
         return legend_order.get(pat, 999)
 
@@ -322,8 +410,9 @@ def plot_grouped_scatter(
     # --- assi centrali ---
     ax.axhline(0, color="gray", linewidth=1, alpha=0.5)
     ax.axvline(0, color="gray", linewidth=1, alpha=0.5)
-    ax.set_ylim(-20, 20)
-    ax.set_xlim(-40, 40)
+    ax.set_ylim(-max(abs(df['real_mean'].min()), df['real_mean'].max()) * 1.1,
+                max(abs(df['real_mean'].min()), df['real_mean'].max()) * 1.1)
+    ax.set_xlim(df['ideal_angle'].min()*1.1, df['ideal_angle'].max()*1.1)
 
     # --- labels ---
     ax.set_xlabel("Ideal mean Δθ (°)", fontsize=20)
