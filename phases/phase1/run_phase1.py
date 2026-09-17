@@ -13,6 +13,12 @@ from core.analysis.cross_validation             import loocv_leave_one_subject
 from core.visualization   import heatmaps
 from core.visualization   import plot_regressions as plot_regression
 
+from core.analysis.model_fit_single_stimulation import (
+    fit_single_stimulation_model,
+    plot_single_stimulation_model,
+    calculate_new_saturation,
+)
+
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 print("RUNNING PHASE 1 ANALYSIS")
@@ -150,26 +156,112 @@ else:
 
 # --- Sigmoid fit ---
 if cfg.DO_SIGMOID_FIT:
-    if "group_validation_df" not in locals():
-        print("SKIP sigmoid: esegui prima con DO_MODEL_PARAMETERS=True")
-    else:
-        print("Fitting sigmoid to group validation data...")
-        print(group_validation_df.head())
-        #fit_group_sigmoid(group_validation_df, plot=True, output_folder=OUT_VAL)
-        # 1. Fitta la tanh sul tuo dataset
-        results = fit_group_sigmoid(group_validation_df, plot=True, output_folder=OUT_VAL)
 
-        # 3. Plot con overlay tanh
+    if "group_validation_df" not in locals():
+
+        print(
+            "SKIP sigmoid: esegui prima "
+            "con DO_MODEL_PARAMETERS=True"
+        )
+
+    else:
+
+        print(
+            "Fitting sigmoid models to group "
+            "validation data..."
+        )
+
+        print(
+            group_validation_df.head()
+        )
+
+        # ----------------------------------------------------
+        # Fit Linear + Tanh + Logistic4
+        # ----------------------------------------------------
+
+        results = fit_group_sigmoid(
+            group_validation_df,
+            plot=True,
+            output_folder=OUT_VAL
+        )
+
         plot_grouped_scatter(
             group_validation_df,
             selected_patterns=None,
             protocol_path=cfg.PROTOCOL_PATH,
-            output_folder="plots",
-            results=results
+            output_folder=os.path.join(
+                OUT,
+                "grouped_plot"
+            ),
+            results=results,
+            plot_ci=True,
+            saturation_plot=True,
+            Kb=Kb_global,
+            Kt=Kt_global,
         )
-        group_validation_df.to_excel("group_validation_df.xlsx", index=False)  # index=False evita di salvare l'indice
+
 else:
+
     print("SKIPPING sigmoid fit")
+
+# ============================================================
+# SINGLE-STIMULATION SIGMOID FIT
+# ============================================================
+
+# ============================================================
+# SINGLE-STIMULATION MODEL FIT
+# ============================================================
+
+if cfg.DO_SINGLE_STIMULATION_FIT:
+
+    if "group_validation_df" not in locals():
+
+        print(
+            "SKIP single-stimulation fit: "
+            "esegui prima con DO_MODEL_PARAMETERS=True"
+        )
+
+    else:
+
+        print("\n" + "=" * 60)
+        print("SINGLE-STIMULATION MODEL FIT")
+        print("=" * 60)
+
+        (
+            df_single,
+            results_single,
+            best_name_single,
+            best_model_single,
+        ) = fit_single_stimulation_model(
+            group_validation_df
+        )
+
+        saturation_single = (
+            calculate_new_saturation(
+                results_single,
+                Kb=Kb_global,
+                Kt=Kt_global,
+            )
+        )
+
+        plot_single_stimulation_model(
+            df_single,
+            results_single,
+            best_name_single,
+            saturation_single,
+            protocol_path=cfg.PROTOCOL_PATH,
+            output_folder=os.path.join(
+                OUT_MODEL,
+                "single_stimulation",
+            ),
+            plot_ci=True,
+        )
+
+else:
+
+    print(
+        "SKIPPING single-stimulation model fit"
+    )
 
 # --- Cross validation ---
 if cfg.DO_CROSS_VALIDATION:
