@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trajectory Collector</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:      #0f0f0f;
+    --surface: #1a1a1a;
+    --border:  #2e2e2e;
+    --accent:  #e8ff00;
+    --forward: #00c8ff;
+    --return:  #ff6b35;
+    --text:    #e0e0e0;
+    --muted:   #555;
+    --cell-w:  38px;
+    --cell-h:  26px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  #status-bar {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    gap: 14px;
+  }
+  #status-bar .sval { color: var(--text); font-weight: 600; }
+
+  main { display: flex; flex: 1; overflow: hidden; }
+
+  #controls {
+    width: 228px;
+    min-width: 228px;
+    border-right: 1px solid var(--border);
+    padding: 10px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+
+  label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 2px;
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  input, select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: #1a1a1a; }
+
+  .info-badge {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    border-radius: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .info-badge.ok   { color: #2ecc71; border-color: #2ecc71; }
+  .info-badge.warn { color: var(--accent); border-color: var(--accent); }
+
+  #pat-color-bar {
+    height: 3px; border-radius: 2px;
+    background: #333; margin-top: 3px;
+    transition: background 0.2s;
+  }
+
+  #phase-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .phase-btn {
+    flex: 1; padding: 6px 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    background: transparent; border: none;
+    color: var(--muted); cursor: pointer;
+    transition: all 0.12s;
+  }
+  .phase-btn.active-forward { background: var(--forward); color: #000; }
+  .phase-btn.active-return  { background: var(--return);  color: #000; }
+  .phase-btn:not(.active-forward):not(.active-return):hover { background: var(--border); color: var(--text); }
+
+  #step-display {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px; font-weight: 700;
+    text-align: center; padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 2px; background: var(--bg);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  #step-display.phase-forward { color: var(--forward); border-color: var(--forward); }
+  #step-display.phase-return  { color: var(--return);  border-color: var(--return); }
+
+  #rep-display {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 17px; font-weight: 700;
+    text-align: center; color: var(--accent);
+    padding: 5px; border: 1px solid var(--border);
+    border-radius: 2px; background: var(--bg);
+  }
+
+  #last-clicks {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; line-height: 1.65;
+    max-height: 72px; overflow-y: auto;
+    padding: 5px 7px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 2px;
+  }
+  #last-clicks .entry-forward { color: var(--forward); }
+  #last-clicks .entry-return  { color: var(--return); }
+
+  .btn {
+    width: 100%; padding: 7px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    border: none; border-radius: 2px;
+    cursor: pointer; transition: all 0.12s;
+  }
+  .btn-accent { background: var(--accent); color: #000; }
+  .btn-accent:hover { filter: brightness(1.1); }
+  .btn-danger { background: transparent; border: 1px solid #c0392b; color: #c0392b; }
+  .btn-danger:hover { background: #c0392b; color: #fff; }
+  .btn-muted  { background: var(--border); color: var(--text); }
+  .btn-muted:hover { background: #3a3a3a; }
+  .btn-proto  { background: #1a1a2e; border: 1px solid #7c5cbf; color: #b48ef5; }
+  .btn-proto:hover  { background: #7c5cbf; color: #fff; }
+  .btn-folder { background: #1a2a3a; border: 1px solid #2980b9; color: #5dade2; }
+  .btn-folder:hover { background: #2980b9; color: #fff; }
+  .btn-export { background: #1a3a1a; border: 1px solid #2ecc71; color: #2ecc71; }
+  .btn-export:hover { background: #2ecc71; color: #000; }
+
+  .btn-row { display: flex; gap: 5px; }
+  .btn-row .btn { flex: 1; }
+  .divider { border: none; border-top: 1px solid var(--border); }
+  #proto-file-input { display: none; }
+
+  #grid-panel {
+    flex: 1; display: flex;
+    align-items: center; justify-content: center;
+    padding: 8px; overflow: hidden;
+  }
+
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(var(--grid-cols, 14), var(--cell-w));
+    grid-template-rows:    repeat(var(--grid-rows, 18), var(--cell-h));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    padding: 1px; position: relative; flex-shrink: 0;
+  }
+
+  .cell {
+    width: var(--cell-w); height: var(--cell-h);
+    background: var(--surface); border: none;
+    cursor: pointer; position: relative;
+    transition: background 0.07s;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .cell:hover { background: #2a2a2a; }
+
+  .cell-coord {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px; font-weight: 600; color: #ccc;
+    pointer-events: none; user-select: none; line-height: 1;
+  }
+  .cell.start { background: #182818; border: 1px solid #2ecc71; }
+  .cell.start .cell-coord { color: #2ecc71; font-weight: 700; }
+  .cell.has-marker .cell-coord { display: none; }
+
+  .dot {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 9px; height: 9px; border-radius: 50%;
+    pointer-events: none; z-index: 2;
+  }
+  .step-label {
+    position: absolute; top: 1px; right: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 7px; font-weight: 700;
+    pointer-events: none; line-height: 1; z-index: 3;
+  }
+
+  #trial-log-panel {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 5px 16px; max-height: 80px;
+    overflow-y: auto; flex-shrink: 0;
+  }
+  #trial-log {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; color: var(--muted); line-height: 1.8;
+  }
+  .log-entry {
+    display: grid; grid-template-columns: 200px 1fr 1fr;
+    gap: 10px; border-bottom: 1px solid var(--border); padding: 1px 0;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-key { color: var(--accent); }
+  .log-fwd { color: var(--forward); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-ret { color: var(--return);  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  #tooltip {
+    position: fixed; background: var(--accent); color: #000;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 2px;
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.08s; z-index: 200;
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="hdr-title">Trajectory Collector</h1>
+  <div id="status-bar">
+    <span>Subject: <span class="sval" id="hdr-subj">—</span></span>
+    <span>Pattern: <span class="sval" id="hdr-pat">—</span></span>
+    <span>Trial: <span class="sval" id="hdr-trial">—</span></span>
+    <span>Rep: <span class="sval" id="hdr-rep">—</span></span>
+    <span>Duration: <span class="sval" id="hdr-dur">—</span></span>
+    <span>Grid: <span class="sval" id="hdr-grid">—</span></span>
+  </div>
+</header>
+
+<main>
+  <aside id="controls">
+
+    <div>
+      <div class="section-label">Protocol</div>
+      <button class="btn btn-proto" onclick="document.getElementById('proto-file-input').click()">
+        ⬆ Load protocol.json
+      </button>
+      <input type="file" id="proto-file-input" accept=".json" onchange="loadProtocol(event)">
+      <div class="info-badge warn" id="proto-badge" style="margin-top:5px">using defaults</div>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-label">Session</div>
+      <div class="field-group">
+        <div>
+          <label>Subject ID</label>
+          <input id="inp-subject" type="text" placeholder="e.g. S01" />
+        </div>
+        <div>
+          <label>Pattern</label>
+          <select id="inp-pattern" onchange="onPatternChange()"></select>
+          <div id="pat-color-bar"></div>
+        </div>
+        <div>
+          <label>Duration</label>
+          <div class="info-badge" id="dur-badge">— s</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-label">Current Rep</div>
+      <div id="rep-display">REP — / —</div>
+    </div>
+
+    <div>
+      <div class="section-label">Recording Phase</div>
+      <div id="phase-toggle">
+        <button class="phase-btn active-forward" id="btn-forward" onclick="setPhase('forward')">▶ Forward</button>
+        <button class="phase-btn" id="btn-return" onclick="setPhase('return')">◀ Return</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Steps Recorded</div>
+      <div id="step-display" class="phase-forward">F — 0</div>
+    </div>
+
+    <div>
+      <div class="section-label">Recent Steps</div>
+      <div id="last-clicks"><span style="color:var(--muted)">No steps yet</span></div>
+    </div>
+
+    <hr class="divider">
+
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <div class="btn-row">
+        <button class="btn btn-danger" onclick="undoStep()">↩ Undo</button>
+        <button class="btn btn-muted"  onclick="clearRep()">✕ Clear</button>
+      </div>
+      <button class="btn btn-accent" onclick="saveRep()">✓ Save Rep</button>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-label">Export</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <button class="btn btn-folder" onclick="selectSaveFolder()">📁 Select Folder</button>
+        <div class="info-badge" id="folder-badge">no folder selected</div>
+        <button class="btn btn-export" onclick="exportExcel()">⬇ Export Excel</button>
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px">
+        Reps saved: <span id="saved-count" style="color:var(--accent)">0</span>
+      </div>
+    </div>
+
+  </aside>
+
+  <section id="grid-panel">
+    <div id="grid"></div>
+  </section>
+</main>
+
+<div id="trial-log-panel">
+  <div class="section-label" style="margin-bottom:3px">Saved Reps</div>
+  <div id="trial-log"><span style="color:var(--muted)">No reps saved yet.</span></div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DEFAULT PROTOCOL
+// Used when no JSON is loaded. Mirrors protocol2.json structure.
+// ═══════════════════════════════════════════════════════════════
+const DEFAULT_PROTOCOL = {
+  name: "Default",
+  blocks: { durations: [3] },
+  patterns: {
+    repetitions: 3,
+    definitions: [
+      { id:"P01", text:"001_000", effect:"extension",  color:"#ffe8bf" },
+      { id:"P02", text:"100_011", effect:"flexion",    color:"#749bce" },
+      { id:"P03", text:"011_100", effect:"extension",  color:"#ffd080" },
+      { id:"P04", text:"100_001", effect:"backforth",  color:"#b7b2b8" },
+      { id:"P05", text:"000_111", effect:"flexion",    color:"#032e64" },
+      { id:"P06", text:"011_000", effect:"extension",  color:"#ffa100" },
+      { id:"P07", text:"001_001", effect:"noise",      color:"#c9c9c9" },
+      { id:"P08", text:"111_000", effect:"extension",  color:"#b37100" },
+      { id:"P09", text:"000_011", effect:"flexion",    color:"#3164a5" },
+      { id:"P10", text:"001_100", effect:"backforth",  color:"#b7b2b8" },
+      { id:"P11", text:"000_001", effect:"flexion",    color:"#c3d5ea" },
+    ]
+  },
+  grid: { x: 14, y: 18, start_cell: [7, 10] }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// RUNTIME STATE — all driven by the active `proto` object
+// ═══════════════════════════════════════════════════════════════
+let proto      = null;
+let COLS       = 14;
+let ROWS       = 18;
+let START_X    = 7;
+let START_Y    = 10;
+let TOTAL_REPS = 3;
+let DURATION   = 3;
+
+let currentPhase = 'forward';
+let forwardSteps = [];
+let returnSteps  = [];
+let currentRep   = 1;
+let savedReps    = [];
+let saveFolder   = null;  // FileSystemDirectoryHandle
+
+// ═══════════════════════════════════════════════════════════════
+// PROTOCOL LOADING
+// ═══════════════════════════════════════════════════════════════
+
+function loadProtocol(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      applyProtocol(JSON.parse(e.target.result), file.name);
+    } catch (err) {
+      alert('Error parsing JSON:\n' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';   // allow reloading same file
+}
+
+function applyProtocol(p, filename) {
+  proto = p;
+
+  // Grid — protocol uses grid.x = cols, grid.y = rows
+  COLS    = p.grid?.x              ?? 14;
+  ROWS    = p.grid?.y              ?? 18;
+  START_X = p.grid?.start_cell?.[0] ?? 7;
+  START_Y = p.grid?.start_cell?.[1] ?? 10;
+
+  TOTAL_REPS = p.patterns?.repetitions ?? 3;
+
+  // Duration — skip 0 (baseline block), take first real duration
+  const allDurs  = p.blocks?.durations ?? [3];
+  const realDurs = allDurs.filter(d => d > 0);
+  DURATION = realDurs[0] ?? 3;
+
+  // Tell CSS grid how many columns/rows
+  document.documentElement.style.setProperty('--grid-cols', COLS);
+  document.documentElement.style.setProperty('--grid-rows', ROWS);
+
+  // Rebuild UI
+  buildGrid();
+  buildPatternSelect();
+  updateRepDisplay();
+  updateHeader();
+  requestAnimationFrame(() => requestAnimationFrame(fitGrid));
+
+  // Status badges
+  const pb = document.getElementById('proto-badge');
+  pb.textContent = '✓ ' + (p.name ?? filename ?? 'loaded');
+  pb.className   = 'info-badge ok';
+
+  document.getElementById('dur-badge').textContent =
+    realDurs.length === 1
+      ? `${DURATION} s — fixed`
+      : realDurs.join(' / ') + ' s';
+
+  document.getElementById('hdr-title').textContent =
+    'Trajectory Collector · ' + (p.name ?? filename ?? '');
+
+  console.log(`[Protocol] ${p.name} — grid ${COLS}×${ROWS}, start (${START_X},${START_Y}), reps ${TOTAL_REPS}, dur ${DURATION}s`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PATTERN DROPDOWN
+// ═══════════════════════════════════════════════════════════════
+
+function buildPatternSelect() {
+  const sel  = document.getElementById('inp-pattern');
+  sel.innerHTML = '';
+  const defs = proto?.patterns?.definitions ?? DEFAULT_PROTOCOL.patterns.definitions;
+  defs.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value       = p.id;
+    opt.textContent = `${p.id} · ${p.text} · ${p.effect}`;
+    sel.appendChild(opt);
+  });
+  onPatternChange();
+}
+
+function onPatternChange() {
+  const pat = getSelectedPattern();
+  document.getElementById('pat-color-bar').style.background = pat ? pat.color : '#333';
+  updateHeader();
+}
+
+function getSelectedPattern() {
+  const id   = document.getElementById('inp-pattern').value;
+  const defs = proto?.patterns?.definitions ?? DEFAULT_PROTOCOL.patterns.definitions;
+  return defs.find(p => p.id === id);
+}
+
+function getTrialNumber() {
+  const id   = document.getElementById('inp-pattern').value;
+  const defs = proto?.patterns?.definitions ?? DEFAULT_PROTOCOL.patterns.definitions;
+  return defs.findIndex(p => p.id === id) + 1;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GRID BUILD
+// ═══════════════════════════════════════════════════════════════
+
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';   // clear on protocol reload
+
+  for (let r = 1; r <= ROWS; r++) {
+    for (let c = 1; c <= COLS; c++) {
+      const cell  = document.createElement('div');
+      cell.className   = 'cell';
+      cell.id          = `cell-${c}-${r}`;
+      cell.dataset.x   = c;
+      cell.dataset.y   = r;
+
+      // Coordinate label: row+col, e.g. row=11, col=3 → "113"
+      const coord = document.createElement('span');
+      coord.className   = 'cell-coord';
+      coord.textContent = `${r}${c}`;
+      cell.appendChild(coord);
+
+      if (c === START_X && r === START_Y) cell.classList.add('start');
+
+      cell.addEventListener('click',      onCellClick);
+      cell.addEventListener('mouseenter', onCellHover);
+      cell.addEventListener('mouseleave', hideTooltip);
+      grid.appendChild(cell);
+    }
+  }
+
+  // Reset current rep state on rebuild
+  forwardSteps = [];
+  returnSteps  = [];
+  currentRep   = 1;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-SIZE CELLS TO FIT VIEWPORT
+// ═══════════════════════════════════════════════════════════════
+
+function fitGrid() {
+  const panel  = document.getElementById('grid-panel');
+  const GAP    = 1;
+  const BORDER = 2;
+
+  const availH = panel.clientHeight - 16;
+  const availW = panel.clientWidth  - 16;
+
+  const cellH = Math.floor((availH - BORDER - GAP * (ROWS - 1)) / ROWS);
+  const cellW = Math.floor((availW - BORDER - GAP * (COLS - 1)) / COLS);
+
+  // Use the smaller dimension so the grid fits both axes;
+  // cells are 35% wider than tall (landscape orientation).
+  const base = Math.max(Math.min(cellW, cellH), 12);
+  const cw   = Math.floor(base * 1.35);
+  const ch   = base;
+
+  document.documentElement.style.setProperty('--cell-w', cw + 'px');
+  document.documentElement.style.setProperty('--cell-h', ch + 'px');
+
+  // Store for SVG line drawing (gap included)
+  window._cw = cw + GAP;
+  window._ch = ch + GAP;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════════════════════
+
+function onCellClick(e) {
+  const x = parseInt(e.currentTarget.dataset.x);
+  const y = parseInt(e.currentTarget.dataset.y);
+  if (currentPhase === 'forward') forwardSteps.push({ x, y });
+  else                            returnSteps.push({ x, y });
+  renderGrid();
+  updateStepDisplay();
+  updateLastClicks();
+}
+
+function undoStep() {
+  if (currentPhase === 'forward' && forwardSteps.length > 0) forwardSteps.pop();
+  else if (currentPhase === 'return' && returnSteps.length > 0) returnSteps.pop();
+  renderGrid();
+  updateStepDisplay();
+  updateLastClicks();
+}
+
+function clearRep() {
+  if (!confirm('Clear all steps for this rep?')) return;
+  forwardSteps = [];
+  returnSteps  = [];
+  renderGrid();
+  updateStepDisplay();
+  updateLastClicks();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════
+
+function renderGrid() {
+  document.querySelectorAll('.dot, .step-label').forEach(el => el.remove());
+  const oldSvg = document.getElementById('traj-svg');
+  if (oldSvg) oldSvg.remove();
+  document.querySelectorAll('.cell.has-marker').forEach(c => c.classList.remove('has-marker'));
+
+  forwardSteps.forEach((s, i) => drawDot(s.x, s.y, 'var(--forward)', `F${i+1}`));
+  returnSteps.forEach((s, i)  => drawDot(s.x, s.y, 'var(--return)',  `R${i+2}`));
+  drawLine(forwardSteps, 'var(--forward)');
+  drawLine(returnSteps,  'var(--return)');
+}
+
+function drawDot(x, y, color, label) {
+  const cell = document.getElementById(`cell-${x}-${y}`);
+  if (!cell) return;
+  cell.classList.add('has-marker');
+  const dot = document.createElement('div');
+  dot.className = 'dot';
+  dot.style.background = color;
+  const lbl = document.createElement('div');
+  lbl.className = 'step-label';
+  lbl.style.color = color;
+  lbl.textContent = label;
+  cell.appendChild(dot);
+  cell.appendChild(lbl);
+}
+
+function drawLine(steps, color) {
+  if (steps.length < 2) return;
+  const grid = document.getElementById('grid');
+  let svg = document.getElementById('traj-svg');
+  if (!svg) {
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'traj-svg';
+    svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10';
+    grid.appendChild(svg);
+  }
+  const cw = window._cw || 39;
+  const ch = window._ch || 27;
+  for (let i = 0; i < steps.length - 1; i++) {
+    const a = steps[i], b = steps[i+1];
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', (a.x-1)*cw + cw/2);
+    line.setAttribute('y1', (a.y-1)*ch + ch/2);
+    line.setAttribute('x2', (b.x-1)*cw + cw/2);
+    line.setAttribute('y2', (b.y-1)*ch + ch/2);
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', '1.5');
+    line.setAttribute('stroke-opacity', '0.5');
+    line.setAttribute('stroke-dasharray', '3,2');
+    svg.appendChild(line);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PHASE
+// ═══════════════════════════════════════════════════════════════
+
+function setPhase(phase) {
+  currentPhase = phase;
+  document.getElementById('btn-forward').className =
+    'phase-btn' + (phase === 'forward' ? ' active-forward' : '');
+  document.getElementById('btn-return').className =
+    'phase-btn' + (phase === 'return'  ? ' active-return'  : '');
+  updateStepDisplay();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI UPDATES
+// ═══════════════════════════════════════════════════════════════
+
+function updateStepDisplay() {
+  const el = document.getElementById('step-display');
+  const n  = (currentPhase === 'forward' ? forwardSteps : returnSteps).length;
+  el.textContent = (currentPhase === 'forward' ? 'F' : 'R') + ' — ' + n;
+  el.className   = 'phase-' + currentPhase;
+}
+
+function updateRepDisplay() {
+  document.getElementById('rep-display').textContent = `REP ${currentRep} / ${TOTAL_REPS}`;
+}
+
+function updateLastClicks() {
+  const el  = document.getElementById('last-clicks');
+  const all = [
+    ...forwardSteps.map((s, i) => ({ dir:'forward', label:`F${i+1}`, ...s })),
+    ...returnSteps.map((s, i)  => ({ dir:'return',  label:`R${i+2}`, ...s })),
+  ];
+  if (!all.length) {
+    el.innerHTML = '<span style="color:var(--muted)">No steps yet</span>';
+    return;
+  }
+  el.innerHTML = all.slice(-6).reverse()
+    .map(s => `<div class="entry-${s.dir}">${s.label} → x=${s.x}, y=${s.y}</div>`)
+    .join('');
+}
+
+function updateHeader() {
+  const pat = getSelectedPattern();
+  document.getElementById('hdr-subj').textContent  = document.getElementById('inp-subject').value || '—';
+  document.getElementById('hdr-pat').textContent   = pat ? `${pat.id} ${pat.text}` : '—';
+  document.getElementById('hdr-trial').textContent = getTrialNumber();
+  document.getElementById('hdr-rep').textContent   = currentRep;
+  document.getElementById('hdr-dur').textContent   = DURATION + ' s';
+  document.getElementById('hdr-grid').textContent  = `${COLS}×${ROWS}`;
+}
+
+document.getElementById('inp-subject').addEventListener('input', updateHeader);
+
+// ═══════════════════════════════════════════════════════════════
+// SAVE REP
+// ═══════════════════════════════════════════════════════════════
+
+function saveRep() {
+  const subject = document.getElementById('inp-subject').value.trim();
+  if (!subject)                { alert('Please enter a Subject ID.'); return; }
+  if (forwardSteps.length < 2) { alert('Forward trajectory needs at least 2 steps.'); return; }
+
+  const pat   = getSelectedPattern();
+  const trial = getTrialNumber();
+
+  savedReps.push({
+    subject, trial,
+    rep:             currentRep,
+    duration:        DURATION,
+    pattern_biceps:  pat.text.split('_')[0],
+    pattern_triceps: pat.text.split('_')[1],
+    pattern_pair:    pat.text,
+    pattern_id:      pat.id,
+    forwardSteps:    [...forwardSteps],
+    returnSteps:     [...returnSteps],
+  });
+
+  document.getElementById('saved-count').textContent = savedReps.length;
+  updateLog();
+
+  currentRep++;
+  if (currentRep > TOTAL_REPS) currentRep = 1;
+
+  forwardSteps = [];
+  returnSteps  = [];
+  setPhase('forward');
+  renderGrid();
+  updateStepDisplay();
+  updateLastClicks();
+  updateRepDisplay();
+  updateHeader();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOG
+// ═══════════════════════════════════════════════════════════════
+
+function updateLog() {
+  const log = document.getElementById('trial-log');
+  if (!savedReps.length) {
+    log.innerHTML = '<span style="color:var(--muted)">No reps saved yet.</span>';
+    return;
+  }
+  log.innerHTML = savedReps.map(r => {
+    const fwd = r.forwardSteps.map(s=>`(${s.x},${s.y})`).join('→');
+    const ret = r.returnSteps.length ? r.returnSteps.map(s=>`(${s.x},${s.y})`).join('→') : '—';
+    return `<div class="log-entry">
+      <span class="log-key">${r.subject} | ${r.pattern_id} ${r.pattern_pair} | T${r.trial} R${r.rep}</span>
+      <span class="log-fwd">▶ ${fwd}</span>
+      <span class="log-ret">◀ ${ret}</span>
+    </div>`;
+  }).join('');
+  log.scrollTop = log.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FOLDER SELECTION  (File System Access API — Chrome / Edge only)
+// ═══════════════════════════════════════════════════════════════
+
+async function selectSaveFolder() {
+  if (!window.showDirectoryPicker) {
+    alert('showDirectoryPicker is not supported in this browser.\nPlease use Chrome or Edge.');
+    return;
+  }
+  try {
+    saveFolder = await window.showDirectoryPicker({ mode: 'readwrite' });
+    const badge = document.getElementById('folder-badge');
+    badge.textContent = '✓ ' + saveFolder.name;
+    badge.className   = 'info-badge ok';
+  } catch (err) {
+    if (err.name !== 'AbortError') alert('Could not open folder:\n' + err.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT EXCEL
+// ═══════════════════════════════════════════════════════════════
+
+async function exportExcel() {
+  if (!savedReps.length) { alert('No reps to export.'); return; }
+
+  const subject = savedReps[0].subject;
+  const wb      = XLSX.utils.book_new();
+  const maxFwd  = Math.max(...savedReps.map(r => r.forwardSteps.length));
+  const maxRet  = Math.max(...savedReps.map(r => r.returnSteps.length));
+  const meta    = ['subject','trial','rep','duration',
+                   'pattern_biceps','pattern_triceps','pattern_pair'];
+
+  // ── Forward sheet ──────────────────────────────────────────
+  const fwdH = [];
+  for (let i = 1; i <= maxFwd; i++) fwdH.push(`forward_step${i}_x`, `forward_step${i}_y`);
+  const fwdData = [meta.concat(fwdH)];
+  savedReps.forEach(r => {
+    const row = [r.subject, r.trial, r.rep, r.duration,
+                 r.pattern_biceps, r.pattern_triceps, r.pattern_pair];
+    for (let i = 0; i < maxFwd; i++) {
+      const s = r.forwardSteps[i];
+      row.push(s ? s.x : '', s ? s.y : '');
+    }
+    fwdData.push(row);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(fwdData), 'Forward');
+
+  // ── Return sheet — step1 = peak (last forward, duplicated) ─
+  const retH = [];
+  for (let i = 1; i <= maxRet + 1; i++) retH.push(`return_step${i}_x`, `return_step${i}_y`);
+  const retData = [meta.concat(retH)];
+  savedReps.forEach(r => {
+    const row = [r.subject, r.trial, r.rep, r.duration,
+                 r.pattern_biceps, r.pattern_triceps, r.pattern_pair];
+    const peak = r.forwardSteps.length ? r.forwardSteps[r.forwardSteps.length - 1] : null;
+    row.push(peak ? peak.x : '', peak ? peak.y : '');
+    for (let i = 0; i < maxRet; i++) {
+      const s = r.returnSteps[i];
+      row.push(s ? s.x : '', s ? s.y : '');
+    }
+    retData.push(row);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(retData), 'Return');
+
+  const filename = `${subject}_trajectory.xlsx`;
+
+  // ── Write to selected folder, or fall back to browser download ──
+  if (saveFolder) {
+    try {
+      const buf        = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const fileHandle = await saveFolder.getFileHandle(filename, { create: true });
+      const writable   = await fileHandle.createWritable();
+      await writable.write(new Blob([buf], { type: 'application/octet-stream' }));
+      await writable.close();
+
+      // Brief confirmation in the badge
+      const badge = document.getElementById('folder-badge');
+      const prev  = badge.textContent;
+      badge.textContent = `✓ saved ${filename}`;
+      badge.className   = 'info-badge ok';
+      setTimeout(() => { badge.textContent = prev; }, 3000);
+      return;
+    } catch (err) {
+      console.warn('[Export] Folder write failed, falling back to download:', err);
+    }
+  }
+
+  // Fallback: standard browser download
+  XLSX.writeFile(wb, filename);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOOLTIP
+// ═══════════════════════════════════════════════════════════════
+
+function onCellHover(e) {
+  const x = e.currentTarget.dataset.x;
+  const y = e.currentTarget.dataset.y;
+  const tt = document.getElementById('tooltip');
+  tt.textContent = `col=${x}, row=${y}`;
+  tt.style.opacity = '1';
+  document.addEventListener('mousemove', moveTooltip);
+}
+function moveTooltip(e) {
+  const tt = document.getElementById('tooltip');
+  tt.style.left = (e.clientX + 14) + 'px';
+  tt.style.top  = (e.clientY - 26) + 'px';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').style.opacity = '0';
+  document.removeEventListener('mousemove', moveTooltip);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════════════
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'f' || e.key === 'F') setPhase('forward');
+  if (e.key === 'r' || e.key === 'R') setPhase('return');
+  if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undoStep(); }
+  if (e.key === 'Enter') saveRep();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════
+applyProtocol(DEFAULT_PROTOCOL, null);
+requestAnimationFrame(() => requestAnimationFrame(fitGrid));
+window.addEventListener('resize', () => { fitGrid(); renderGrid(); });
+</script>
+</body>
+</html>
