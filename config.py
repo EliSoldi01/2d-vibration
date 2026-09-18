@@ -1,4 +1,6 @@
 ﻿from pathlib import Path
+import sys
+
 
 # ============================================================
 # EXPERIMENT
@@ -9,7 +11,8 @@ PROTOCOL_ID = "right_90deg"
 # ============================================================
 # DATA PATHS
 # ============================================================
-PROJECT_ROOT = Path(__file__).resolve().parents[2] # Determines the root directory of the project
+PROJECT_ROOT = Path(__file__).resolve().parents[0]
+sys.path.insert(0, str(PROJECT_ROOT))
 DATA_ROOT = "../data"
 RESULTS_ROOT = "../results"
 
@@ -23,7 +26,7 @@ RESULTS_PATH = Path(RESULTS_ROOT) / EXPERIMENT_ID / PROTOCOL_ID
 # ANALYSIS SETTINGS
 # ============================================================
 
-DO_HEATMAPS                              = False
+DO_HEATMAPS                              = True
 DO_SINGLE_SUBJECT_HEATMAPS               = False
 DO_REGRESSIONS                           = False
 DO_REGRESSION_ORIGINAL_DURATIONS_SUBJ    = False
@@ -46,5 +49,5 @@ SAVE_PLOTS          = True
 # ============================================================
 # DA SPOSTARE NEL MAIN
 # ============================================================
-SUBJECTS_TO_PROCESS = ["S01", "S02", "S04", "S05", "S06", "S07", "S08", "S09", "S10", "S11", "S12", "S13", "S14", "S15", "S16","S18", "S19", "S20", "S21", "S22"]
+SUBJECTS_TO_PROCESS = None
 PATTERNS_TO_PROCESS = ["001_000", "000_001"]

@@ -2,7 +2,7 @@ import json
 import pandas as pd
 from pathlib import Path
 
-def load_data_file(path):
+def load_file(path):
     """
     Load data from a JSON or Excel file.
     Args:
@@ -34,7 +34,7 @@ def load_protocol(path="protocol.json"):
         protocol = json.load(f)
     return protocol
 
-def load_data_file(path, sheet_name):
+def load_data_file(path, sheet_name=None):
     """
     Load main experimental data from an xlsx file.
     Args:
@@ -42,8 +42,9 @@ def load_data_file(path, sheet_name):
     Returns:
         pd.DataFrame: Loaded data.
     """
-    return pd.read_excel(
-        path,
-        sheet_name=sheet_name
-    )
+    if sheet_name is not None:
+        return pd.read_excel(path,sheet_name=sheet_name)
+
+    return pd.read_excel(path)
+
 

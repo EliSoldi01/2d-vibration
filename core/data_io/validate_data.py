@@ -1,5 +1,5 @@
 import re
-
+import pandas as pd
 
 ### TODO:
 # - Modifica validazione aggiungendo anche i nuovi campi: experiment_id, protocol_id, arm, initial_angle
@@ -240,3 +240,59 @@ def validate_main_data(df, protocol):
     print("[OK] Subject data validated successfully")
     return True
 
+def validate_subjects_data(df):
+    """
+    Validate the Subjects worksheet.
+
+    Required columns:
+        subject
+        forearm_cm
+        forearm_angle_deg
+        upper_cm
+        block_order
+    """
+
+    required_columns = {
+        "subject",
+        "forearm_cm",
+        "forearm_angle_deg",
+        "upper_cm",
+        "block_order",
+    }
+
+    missing_columns = required_columns - set(df.columns)
+
+    if missing_columns:
+        print(
+            f"Missing columns in Subjects sheet: "
+            f"{sorted(missing_columns)}"
+        )
+        return False
+
+    if df["subject"].isna().any():
+        print("Subjects sheet contains missing subject IDs.")
+        return False
+
+    if df["subject"].duplicated().any():
+        print("Subjects sheet contains duplicate subject IDs.")
+        return False
+
+    numeric_columns = [
+        "forearm_cm",
+        "forearm_angle_deg",
+        "upper_cm",
+    ]
+
+    for column in numeric_columns:
+        if not pd.api.types.is_numeric_dtype(df[column]):
+            print(
+                f"Column '{column}' in Subjects sheet "
+                f"must be numeric."
+            )
+            return False
+
+    if df["block_order"].isna().any():
+        print("Subjects sheet contains missing block_order values.")
+        return False
+
+    return True

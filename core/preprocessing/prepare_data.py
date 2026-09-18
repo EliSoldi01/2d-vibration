@@ -4,9 +4,6 @@ from pathlib import Path
 from core.preprocessing import geometry
 from core.preprocessing import ordering
 
-### TODO:
-# - Spostare le info dei soggetti (lunghezza avambraccio, angolo dell'avambraccio) in un foglio a parte all'interno di data in modo da dover caricare un solo file
-
 def merge_subject_data(df_main, df_subject):
     """
     Merge main data with subject data on subject.
@@ -26,7 +23,7 @@ def merge_subject_data(df_main, df_subject):
     )
 
 
-def preprocess_data(df):
+def add_pattern_pair(df):
     """
     Preprocess the experimental data by handling missing values
     and converting data types.
@@ -164,7 +161,7 @@ def prepare_data(df_main, df_subject, protocol, output_path = None):
 
     df = merge_subject_data(df_main, df_subject)
 
-    df = preprocess_data(df)
+    df = add_pattern_pair(df)
 
     df = add_expected_illusion(
         df,
