@@ -208,24 +208,6 @@ def validate_main_data(df, protocol):
             f"Some y coordinates are out of range (1-{NY})"
         )
 
-    # --------------------------------------------------------
-    # Pattern pairs
-    # --------------------------------------------------------
-
-    protocol_pairs = [
-        p["text"]
-        for p in protocol["patterns"]["definitions"]
-    ]
-
-    for _, row in df.iterrows():
-
-        pair = f"{row['pattern_pair']}"
-
-        if pair not in protocol_pairs:
-            errors.append(
-                f"Unknown pattern pair: {pair} "
-                f"(subject {row['subject']})"
-            )
 
     # --------------------------------------------------------
     # Validation result

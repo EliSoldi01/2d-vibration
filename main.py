@@ -1,9 +1,11 @@
 import config as cfg
 
-from core.data_io import load_data
-from core.data_io import validate_data
+from core.data_io import load_data, validate_data
 from core.preprocessing.prepare_data import prepare_data
-from core.analysis import heatmaps
+from core.analysis import extract_model_parameters, heatmaps
+from core.excels import model_results
+
+
 
 
 def main():
@@ -45,20 +47,28 @@ def main():
     print("Data validated successfully.")
 
     # ========================================================
+    # CREATE RESULTS FOLDERS
+    # ========================================================
+    print("\n-> Creating results folder...")
+
+    for results_path in cfg.ALL_PATHS:
+        if results_path:
+            results_path.mkdir(parents=True,exist_ok=True)
+            print(f"{results_path} created.")
+
+    print("All results folders created successfully.")
+
+    # ========================================================
     # PREPARE DATA
     # ========================================================
 
     print("\n-> Preparing data...")
 
-    cfg.RESULTS_PATH.mkdir(parents=True,exist_ok=True)
-
-    processed_path = (cfg.RESULTS_PATH / "data_processed.xlsx")
-
-    df = prepare_data(df_main=df_main,df_subject=df_subjects,protocol=protocol,output_path=processed_path)
+    df = prepare_data(df_main=df_main,df_subject=df_subjects,protocol=protocol,output_path=cfg.DATA_PROCESSED_PATH)
 
     print(
         f"  Data prepared successfully and saved to: "
-        f"{processed_path}"
+        f"{cfg.DATA_PROCESSED_PATH}"
     )
 
     # ========================================================
@@ -110,12 +120,6 @@ def main():
 
         print("\n-> Generating heatmaps...")
 
-        heatmaps_path = (
-            cfg.RESULTS_PATH / "heatmaps"
-        )
-
-        heatmaps_path.mkdir(parents=True,exist_ok=True)
-
         # ----------------------------------------------------
         # Single-subject heatmaps
         # ----------------------------------------------------
@@ -130,7 +134,7 @@ def main():
                     df=df_analysis,
                     subject=subject,
                     protocol=protocol,
-                    output_folder=heatmaps_path,
+                    output_folder=cfg.HEATMAPS_RESULTS_PATH,
                     metric="vividness",
                     recalc_subject=cfg.RECALC_SUBJECT
                 )
@@ -148,7 +152,7 @@ def main():
             heatmaps.save_all_subjects_heatmaps(
                 df=df_analysis,
                 protocol=protocol,
-                output_folder=heatmaps_path,
+                output_folder=cfg.HEATMAPS_RESULTS_PATH,
                 metric="vividness"
             )
 
@@ -156,6 +160,22 @@ def main():
 
         print("\n-> SKIPPING heatmaps")
 
+    # ========================================================
+    # MODEL PARAMETERS
+    # ========================================================
+    if cfg.DO_EXTRACT_MODEL_PARAMETERS: 
+        print("\n-> Running model analysis...")
+
+        analysis_results = extract_model_parameters.run_model_analysis( df_analysis, subjects_list, protocol ) 
+        print("Model analysis completed.") 
+        print("\n-> Saving model results...") 
+
+        model_results.save_results( analysis_results, df_analysis, subjects_list, protocol, cfg.MODEL_PARAMETERS_PATH) 
+        print("Model results saved.") 
+
+    else: 
+
+        print("\n-> SKIPPING model parameters")
 
 if __name__ == "__main__":
     main()

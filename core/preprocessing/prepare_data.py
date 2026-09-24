@@ -43,13 +43,12 @@ def add_pattern_pair(df):
     )
     df = df.dropna(subset=["duration"])
 
-    if "pattern_pair" not in df.columns:
-        df["pattern_pair"] = (
-            df["pattern_biceps"] + "_" +
-            df["pattern_triceps"]
-        )
-    else:
-        df["pattern_pair"] = df["pattern_pair"].astype(str)
+    df["pattern_pair"] = (
+        df["pattern_biceps"] + "_" +
+        df["pattern_triceps"]
+    )
+
+    df.insert(df.columns.get_loc("pattern_triceps")  + 1, "pattern_pair", df.pop("pattern_pair"))
 
     df["x"] = pd.to_numeric(df["x"], errors="coerce")
     df["y"] = pd.to_numeric(df["y"], errors="coerce")
@@ -59,7 +58,8 @@ def add_pattern_pair(df):
             "x",
             "y",
             "pattern_biceps",
-            "pattern_triceps"
+            "pattern_triceps",
+            "pattern_pair"
         ]
     )
 
@@ -159,9 +159,8 @@ def prepare_data(df_main, df_subject, protocol, output_path = None):
         pd.DataFrame: Prepared experimental data.
     """
 
-    df = merge_subject_data(df_main, df_subject)
-
-    df = add_pattern_pair(df)
+    df = add_pattern_pair(df_main)
+    df = merge_subject_data(df, df_subject)
 
     df = add_expected_illusion(
         df,
@@ -176,6 +175,7 @@ def prepare_data(df_main, df_subject, protocol, output_path = None):
     )
 
     if output_path is not None:
-        save_processed_data(df, output_path)
+        output_file = Path(output_path, "data_processed.xlsx")
+        save_processed_data(df, output_file)
 
     return df
