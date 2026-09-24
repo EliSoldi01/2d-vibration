@@ -4,7 +4,7 @@ from sklearn.linear_model import LinearRegression
 
 import config as cfg
 
-from core.analysis.r2_metrics import compute_r2_metrics
+from core.analysis.metrics import compute_r2_metrics
 from core.utils.patterns import pattern_sums
 
 # ============================================================

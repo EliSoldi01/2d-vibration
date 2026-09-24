@@ -56,7 +56,7 @@
         "text": "100_001",
         "effect": "symmetric",
         "code": "E1F1",
-        "color": "#b7b2b8",
+        "color": "#616161",
         "legend_position": 7
       },
       {
@@ -116,7 +116,7 @@
         "text": "001_100",
         "effect": "symmetric",
         "code": "F1E1",
-        "color": "#b7b2b8",
+        "color": "#616161",
         "legend_position": 4
       },
       {

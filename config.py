@@ -52,7 +52,7 @@ DO_SINGLE_STIMULATION_FIT                = False
 # ============================================================
 # OPTIONAL
 # ============================================================
-USE_VIVIDNESS_WEIGHTS = False
+USE_VIVIDNESS_WEIGHTS = True
 RECALC_SUBJECT        = True
 UPDATE_GROUP_AVERAGE  = True
 SAVE_PLOTS            = True

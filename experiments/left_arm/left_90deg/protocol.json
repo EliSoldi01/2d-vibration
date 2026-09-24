@@ -1,5 +1,5 @@
 {
-  "experiment_id": "left_arm",
+  "experiment_id": "baseline",
   "protocol_id": "left_90deg",  
   "arm": "left",
   "initial_angle": 90,
@@ -21,9 +21,9 @@
     "definitions": [
       {
         "id": "P01",
-        "biceps": [0, 0, 1],
+        "biceps": [1, 0, 0],
         "triceps": [0, 0, 0],
-        "text": "001_000",
+        "text": "100_000",
         "effect": "extension",
         "code": "E1F0",
         "color": "#ffe8bf",
@@ -56,7 +56,7 @@
         "text": "100_001",
         "effect": "symmetric",
         "code": "E1F1",
-        "color": "#b7b2b8",
+        "color": "#616161",
         "legend_position": 7
       },
       {
@@ -71,9 +71,9 @@
       },
       {
         "id": "P06",
-        "biceps": [0, 1, 1],
+        "biceps": [1, 1, 0],
         "triceps": [0, 0, 0],
-        "text": "011_000",
+        "text": "110_000",
         "effect": "extension",
         "code": "E2F0",
         "color": "#ffa100",
@@ -102,8 +102,8 @@
       {
         "id": "P09",
         "biceps": [0, 0, 0],
-        "triceps": [0, 1, 1],
-        "text": "000_011",
+        "triceps": [1, 1, 0],
+        "text": "000_110",
         "effect": "flexion",
         "code": "E0F2",
         "color": "#3164a5",
@@ -116,14 +116,14 @@
         "text": "001_100",
         "effect": "symmetric",
         "code": "F1E1",
-        "color": "#b7b2b8",
+        "color": "#616161",
         "legend_position": 4
       },
       {
         "id": "P11",
         "biceps": [0, 0, 0],
-        "triceps": [0, 0, 1],
-        "text": "000_001",
+        "triceps": [1, 0, 0],
+        "text": "000_100",
         "effect": "flexion",
         "code": "E0F1",
         "color": "#c3d5ea",
