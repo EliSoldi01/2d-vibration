@@ -1,12 +1,13 @@
 import config as cfg
+import pandas as pd
+import numpy as np
 
 from core.data_io import load_data, validate_data
 from core.preprocessing.prepare_data import prepare_data
-from core.analysis import extract_model_parameters, heatmaps
-from core.excels import model_results
 
-
-
+from core.analysis import extract_model_parameters, heatmaps, model_fitting
+from core.visualization import plot_model_fitting
+from core.excels import model_results, model_fitting_results
 
 def main():
 
@@ -176,6 +177,148 @@ def main():
     else: 
 
         print("\n-> SKIPPING model parameters")
+
+    # ========================================================
+    # MODEL FITTING
+    # ========================================================
+
+    if cfg.DO_MODEL_FITTING:
+
+        print("\n-> Running model fitting...")
+
+        # ----------------------------------------------------
+        # Load group validation data
+        # ----------------------------------------------------
+
+        validation_path = (
+            cfg.MODEL_PARAMETERS_PATH
+            / "group_validation.xlsx"
+        )
+
+        if not validation_path.exists():
+
+            raise FileNotFoundError(
+                "Group validation file not found: "
+                f"{validation_path}"
+            )
+
+        df_validation = pd.read_excel(
+            validation_path,
+            sheet_name="Validation"
+        )
+
+        # ----------------------------------------------------
+        # Select valid data
+        # ----------------------------------------------------
+
+        data = df_validation[
+            np.isfinite(
+                df_validation["ideal_angle"]
+            )
+            & np.isfinite(
+                df_validation["real_mean"]
+            )
+        ].copy()
+
+        if data.empty:
+
+            raise ValueError(
+                "No valid data available for model fitting."
+            )
+
+        x = data[
+            "ideal_angle"
+        ].to_numpy()
+
+        y = data[
+            "real_mean"
+        ].to_numpy()
+
+        print(
+            f"   Number of data points: {len(x)}"
+        )
+
+        # ----------------------------------------------------
+        # Fit candidate models
+        # ----------------------------------------------------
+
+        fitting_results = model_fitting.fit_models(
+            x=x,
+            y=y,
+            weights=None,
+        )
+
+        print("Model fitting completed.")
+
+        # ----------------------------------------------------
+        # Best model
+        # ----------------------------------------------------
+
+        best_model = model_fitting.get_best_model(
+            fitting_results
+        )
+
+        print(
+            f"   Best model according to AIC: "
+            f"{best_model}"
+        )
+
+        # ----------------------------------------------------
+        # Save Excel results
+        # ----------------------------------------------------
+
+        print("\n-> Saving model fitting results...")
+
+        model_fitting_results.save_model_fitting_results(
+            results=fitting_results,
+            output_path=cfg.MODEL_FITTING_PATH
+            / "model_fitting_results.xlsx",
+        )
+
+        print(
+            "   Model fitting results saved to: "
+            f"{cfg.MODEL_FITTING_PATH}"
+            "/model_fitting_results.xlsx"
+        )
+
+        # ----------------------------------------------------
+        # Plots
+        # ----------------------------------------------------
+
+        if cfg.SAVE_PLOTS:
+
+            print("\n-> Generating model fitting plots...")
+
+            # ------------------------------------------------
+            # Model comparison
+            # ------------------------------------------------
+
+            plot_model_fitting.plot_comparison(
+                x=x,
+                y=y,
+                results=fitting_results,
+                output_folder=cfg.MODEL_FITTING_PATH,
+            )
+
+            # ------------------------------------------------
+            # Best model
+            # ------------------------------------------------
+
+            plot_model_fitting.plot_best_model(
+                df=data,
+                protocol_path=cfg.PROTOCOL_PATH,
+                output_folder=cfg.MODEL_FITTING_PATH,
+                results=fitting_results,
+                plot_confidence_band=True,
+                plot_saturation_points=True,
+                confidence=0.95,
+            )
+
+            print("Model fitting plots saved.")
+
+    else:
+
+        print("\n-> SKIPPING model fitting")
 
 if __name__ == "__main__":
     main()

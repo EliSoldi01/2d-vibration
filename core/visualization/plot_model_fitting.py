@@ -1,20 +1,12 @@
-from pathlib import Path
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-from core.analysis.model_fitting import (
-    linear_model,
-    tanh_sigmoid,
-    logistic_sigmoid,
-    get_best_model
-)
+import core.analysis.model_fitting as mf
+import core.analysis.saturation as sat
+import config as cfg
 
 def plot_comparison(
     x,
     y,
     results,
-    output_folder=None,
+    output_folder=cfg.MODEL_FITTING_PATH,
 ):
     """
     Plot all fitted models together with the experimental data.
@@ -104,21 +96,21 @@ def plot_comparison(
 
         if name == "linear":
 
-            y_range = linear_model(
+            y_range = mf.linear_model(
                 x_range,
                 *params,
             )
 
         elif name == "tanh":
 
-            y_range = tanh_sigmoid(
+            y_range = mf.tanh_sigmoid(
                 x_range,
                 *params,
             )
 
         elif name == "logistic4":
 
-            y_range = logistic_sigmoid(
+            y_range = mf.logistic_sigmoid(
                 x_range,
                 *params,
             )
@@ -225,9 +217,12 @@ def plot_comparison(
 def plot_best_model(
     df,
     protocol_path=None,
-    output_folder=None,
+    output_folder=cfg.MODEL_FITTING_PATH,
     results=None,
     selected_patterns=None,
+    plot_confidence_band=False,
+    plot_saturation_points=False,
+    confidence=0.95,
     output_name="best_model.png",
 ):
     """
@@ -256,6 +251,14 @@ def plot_best_model(
 
     selected_patterns : list, optional
         Patterns to include in the plot.
+
+    plot_confidence_band : bool, optional
+        If True, plot the confidence band around
+        the best-fitting model. Default is False.
+
+    confidence : float, optional
+        Confidence level of the model confidence band.
+        Default is 0.95.
 
     output_name : str
         Name of the output figure.
@@ -302,16 +305,38 @@ def plot_best_model(
         )
 
     # ========================================================
+    # CREATE FIGURE
+    # ========================================================
+
+    fig, ax = plt.subplots(
+        figsize=(14, 10)
+    )
+
+    # ========================================================
     # BEST MODEL
     # ========================================================
 
-    best_name = get_best_model(
+    best_name = mf.get_best_model(
         results
     )
 
     best_model = results[
         best_name
     ]
+
+    # ========================================================
+    # SATURATION POINT
+    # ========================================================
+
+    saturation = None
+
+    if plot_saturation_points:
+
+        saturation = sat.get_saturation_info(
+            results,
+            best_model_name=best_name,
+            threshold=cfg.SATURATION_THRESHOLD,
+        )
 
     # ========================================================
     # SMOOTH X RANGE
@@ -329,7 +354,7 @@ def plot_best_model(
 
     if best_name == "linear":
 
-        y_fit = linear_model(
+        y_fit = mf.linear_model(
             x_smooth,
             *best_model["params"],
         )
@@ -338,7 +363,7 @@ def plot_best_model(
 
     elif best_name == "tanh":
 
-        y_fit = tanh_sigmoid(
+        y_fit = mf.tanh_sigmoid(
             x_smooth,
             *best_model["params"],
         )
@@ -347,7 +372,7 @@ def plot_best_model(
 
     elif best_name == "logistic4":
 
-        y_fit = logistic_sigmoid(
+        y_fit = mf.logistic_sigmoid(
             x_smooth,
             *best_model["params"],
         )
@@ -358,6 +383,70 @@ def plot_best_model(
 
         raise ValueError(
             f"Unknown model: {best_name}"
+        )
+
+    # ========================================================
+    # SATURATION POINT
+    # ========================================================
+
+    if (
+        plot_saturation_points
+        and saturation is not None
+        and saturation["has_saturation"]
+    ):
+
+        ax.scatter(
+            saturation["x_sat"],
+            saturation["y_sat"],
+            marker="x",
+            s=120,
+            color="red",
+            zorder=7,
+            label=(
+                f"Saturation onset "
+                f"({int(saturation['threshold'] * 100)}%)"
+            ),
+        )
+
+        ax.scatter(
+            -saturation["x_sat"],
+            -saturation["y_sat"],
+            marker="x",
+            s=120,
+            color="red",
+            zorder=7
+        )
+
+    # ========================================================
+    # CONFIDENCE BAND
+    # ========================================================
+
+    if plot_confidence_band:
+
+        n_obs = len(
+            best_model["x"]
+        )
+
+        n_params = len(
+            best_model["params"]
+        )
+
+        df_resid = (
+            n_obs
+            - n_params
+        )
+
+        (
+            _,
+            lower_band,
+            upper_band,
+        ) = mf.model_confidence_band(
+            model_name=best_name,
+            x=x_smooth,
+            params=best_model["params"],
+            pcov=best_model["pcov"],
+            confidence=confidence,
+            df_resid=df_resid,
         )
 
     # ========================================================
@@ -493,12 +582,22 @@ def plot_best_model(
             ] = 999
 
     # ========================================================
-    # CREATE FIGURE
+    # CONFIDENCE BAND
     # ========================================================
 
-    fig, ax = plt.subplots(
-        figsize=(14, 10)
-    )
+    if plot_confidence_band:
+
+        ax.fill_between(
+            x_smooth,
+            lower_band,
+            upper_band,
+            color="#3d3d3d44",
+            alpha=0.20,
+            label=(
+                f"{int(confidence * 100)}% CI"
+            ),
+            zorder=2,
+        )
 
     # ========================================================
     # EXPERIMENTAL DATA: MEAN ± SD
@@ -608,8 +707,14 @@ def plot_best_model(
         if label.startswith(
             best_name
         ):
-
+            return 9998
+        
+        if label.startswith("Saturation"):
             return 9999
+
+        if label.endswith("CI"):
+
+            return 10000
 
         pattern = label.split()[0]
 

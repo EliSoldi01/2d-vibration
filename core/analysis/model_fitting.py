@@ -45,7 +45,6 @@ def logistic_sigmoid(x, L_min, L_max, k, D0):
         / (1 + np.exp(-k * (x - D0)))
     )
 
-
 # ============================================================
 # SINGLE MODEL FIT
 # ============================================================
@@ -80,7 +79,8 @@ def fit_one(
     -------
     dict
         Fitting results, including parameters, covariance,
-        metrics, predictions, and fitting status.
+        confidence intervals, metrics, predictions, and
+        fitting status.
     """
 
     x = np.asarray(
@@ -147,7 +147,7 @@ def fit_one(
         )
 
         # ----------------------------------------------------
-        # Standard errors of parameters
+        # Standard errors and 95% CI of parameters
         # ----------------------------------------------------
 
         if (
@@ -155,14 +155,53 @@ def fit_one(
             and np.all(np.isfinite(pcov))
         ):
 
-            params_std = np.sqrt(
+            params_se = np.sqrt(
                 np.diag(pcov)
             )
 
+            # Residual degrees of freedom
+            df_resid = len(y) - len(popt)
+
+            if df_resid > 0:
+
+                t_critical = t.ppf(
+                    0.975,
+                    df_resid
+                )
+
+                params_ci_lower = (
+                    popt
+                    - t_critical * params_se
+                )
+
+                params_ci_upper = (
+                    popt
+                    + t_critical * params_se
+                )
+
+                params_ci = np.column_stack(
+                    (
+                        params_ci_lower,
+                        params_ci_upper
+                    )
+                )
+
+            else:
+
+                params_ci = np.full(
+                    (len(popt), 2),
+                    np.nan
+                )
+
         else:
 
-            params_std = np.full(
+            params_se = np.full(
                 len(popt),
+                np.nan
+            )
+
+            params_ci = np.full(
+                (len(popt), 2),
                 np.nan
             )
 
@@ -186,6 +225,7 @@ def fit_one(
         )
 
         residuals = y - y_pred
+
         rss = np.sum(
             residuals ** 2
         )
@@ -198,7 +238,8 @@ def fit_one(
 
         return {
             "params": popt,
-            "params_std": params_std,
+            "params_se": params_se,
+            "params_ci": params_ci,
             "pcov": pcov,
             "r2_zero": r2_metrics["R2_zero"],
             "r2_mean": r2_metrics["R2_mean"],
@@ -219,7 +260,8 @@ def fit_one(
 
         return {
             "params": None,
-            "params_std": None,
+            "params_se": None,
+            "params_ci": None,
             "pcov": None,
             "r2_zero": np.nan,
             "r2_mean": np.nan,
@@ -232,7 +274,6 @@ def fit_one(
             "ok": False,
             "error": str(e),
         }
-
 
 def fit_models(
     x,
@@ -374,7 +415,6 @@ def fit_models(
         "logistic4": logistic_result,
     }
 
-
 # ============================================================
 # BEST MODEL
 # ============================================================
@@ -436,10 +476,6 @@ def get_best_model(results):
     )
 
 
-# ============================================================
-# MODEL CONFIDENCE BAND
-# ============================================================
-
 def model_confidence_band(
     model_name,
     x,
@@ -467,11 +503,11 @@ def model_confidence_band(
         Parameter covariance matrix returned by curve_fit.
 
     confidence : float
-        Confidence level.
+        Confidence level, e.g. 0.95.
 
     df_resid : int or None
         Residual degrees of freedom. If provided, a t critical
-        value is used. Otherwise, 1.96 is used.
+        value is used. Otherwise, a normal approximation is used.
 
     Returns
     -------
@@ -485,52 +521,70 @@ def model_confidence_band(
         Upper confidence limit.
     """
 
-    # ========================================================
-    # INPUT
-    # ========================================================
-
     x = np.asarray(
         x,
-        dtype=float
+        dtype=float,
     )
 
     params = np.asarray(
         params,
-        dtype=float
+        dtype=float,
     )
 
+    # ========================================================
+    # CHECK COVARIANCE MATRIX
+    # ========================================================
+
     if pcov is None:
+
         raise ValueError(
-            "Parameter covariance matrix is required."
+            "Parameter covariance matrix is required "
+            "to calculate the confidence band."
         )
 
     pcov = np.asarray(
         pcov,
-        dtype=float
+        dtype=float,
     )
 
     if not np.all(
         np.isfinite(pcov)
     ):
+
         raise ValueError(
-            "Parameter covariance matrix "
-            "contains non-finite values."
+            "Parameter covariance matrix contains "
+            "non-finite values."
+        )
+
+    n_params = len(params)
+
+    if pcov.shape != (
+        n_params,
+        n_params,
+    ):
+
+        raise ValueError(
+            "Parameter covariance matrix has "
+            "an incompatible shape: "
+            f"{pcov.shape}. Expected "
+            f"({n_params}, {n_params})."
         )
 
     # ========================================================
-    # MODEL + JACOBIAN
+    # FITTED CURVE + JACOBIAN
     # ========================================================
 
     if model_name == "linear":
 
-        slope = params[0]
-
         y_fit = linear_model(
             x,
-            slope,
+            *params,
         )
 
-        # dy/dslope = x
+        # y = slope * x
+        #
+        # dy / d(slope) = x
+
         J = x[:, None]
 
     elif model_name == "tanh":
@@ -546,7 +600,6 @@ def model_confidence_band(
         # y = L * tanh(k*x)
         #
         # dy/dL = tanh(k*x)
-        #
         # dy/dk = L*x*sech²(k*x)
 
         tanh_value = np.tanh(
@@ -571,9 +624,9 @@ def model_confidence_band(
             x - D0
         )
 
-        # ====================================================
-        # NUMERICALLY STABLE LOGISTIC
-        # ====================================================
+        # ----------------------------------------------------
+        # Numerically stable logistic function
+        # ----------------------------------------------------
 
         q = np.empty_like(z)
 
@@ -610,19 +663,18 @@ def model_confidence_band(
             D0,
         )
 
-        # ====================================================
-        # ANALYTICAL JACOBIAN
-        # ====================================================
-
+        # ----------------------------------------------------
+        # Analytical Jacobian
+        #
+        # y = L_min + (L_max-L_min)*q
+        #
         # dy/dL_min = 1-q
-        #
         # dy/dL_max = q
-        #
         # dy/dk =
-        # (L_max-L_min)*(x-D0)*q*(1-q)
-        #
+        #   (L_max-L_min)*(x-D0)*q*(1-q)
         # dy/dD0 =
-        # -(L_max-L_min)*k*q*(1-q)
+        #   -(L_max-L_min)*k*q*(1-q)
+        # ----------------------------------------------------
 
         dq = (
             q
@@ -662,8 +714,7 @@ def model_confidence_band(
     )
 
     # Protect against tiny negative values caused by
-    # floating-point numerical precision.
-
+    # floating-point precision.
     variance = np.maximum(
         variance,
         0.0,
@@ -694,7 +745,12 @@ def model_confidence_band(
 
     else:
 
+        # Normal approximation
         critical_value = 1.96
+
+    # ========================================================
+    # CONFIDENCE LIMITS
+    # ========================================================
 
     margin = (
         critical_value
@@ -716,6 +772,7 @@ def model_confidence_band(
         lower,
         upper,
     )
+
 
 
 
