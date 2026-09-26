@@ -21,7 +21,6 @@ PROTOCOL_PATH = ( PROJECT_ROOT / "experiments" / EXPERIMENT_ID / PROTOCOL_ID / "
 )
 DATA_PATH = Path(DATA_ROOT) / EXPERIMENT_ID / PROTOCOL_ID / "data_all_subjects.xlsx"
 
-
 # ============================================================
 # RESULTS PATH
 # ============================================================
@@ -31,7 +30,7 @@ HEATMAPS_RESULTS_PATH = RESULTS_PATH / "heatmaps"
 MODEL_PARAMETERS_PATH = RESULTS_PATH / "model_parameters"
 MODEL_FITTING_PATH = RESULTS_PATH / "model_fitting"
 
-ALL_PATHS = [RESULTS_PATH, DATA_PROCESSED_PATH, HEATMAPS_RESULTS_PATH, MODEL_PARAMETERS_PATH]
+ALL_PATHS = [RESULTS_PATH, DATA_PROCESSED_PATH, HEATMAPS_RESULTS_PATH, MODEL_PARAMETERS_PATH, MODEL_FITTING_PATH]
 
 # ============================================================
 # ANALYSIS SETTINGS
@@ -54,7 +53,7 @@ DO_SINGLE_STIMULATION_FIT                = False
 # OPTIONAL
 # ============================================================
 USE_VIVIDNESS_WEIGHTS = True
-RECALC_SUBJECT        = True
+RECALC_SUBJECT        = True # If True, heatmaps of a subject for which the file already exists is recalculated. 
 UPDATE_GROUP_AVERAGE  = True
 SAVE_PLOTS            = True
 
@@ -68,4 +67,9 @@ PURE_PATTERNS = {
     "000_100": "t"
 }
 PATTERNS_TO_PROCESS = ["100_000", "000_100"]
+
+# Saturation point used for plots
 SATURATION_THRESHOLD = 0.95
+
+# Thresholds used for saturation sensitivity analysis in Excel
+SATURATION_THRESHOLDS_SENSITIVITY = [0.85, 0.90, 0.95]

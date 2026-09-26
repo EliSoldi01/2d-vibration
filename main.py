@@ -2,9 +2,9 @@ import config as cfg
 import pandas as pd
 import numpy as np
 
+from core.utils.paths import create_directory
 from core.data_io import load_data, validate_data
 from core.preprocessing.prepare_data import prepare_data
-
 from core.analysis import extract_model_parameters, heatmaps, model_fitting
 from core.visualization import plot_model_fitting
 from core.excels import model_results, model_fitting_results
@@ -54,8 +54,7 @@ def main():
 
     for results_path in cfg.ALL_PATHS:
         if results_path:
-            results_path.mkdir(parents=True,exist_ok=True)
-            print(f"{results_path} created.")
+            create_directory(results_path)
 
     print("All results folders created successfully.")
 
@@ -202,41 +201,7 @@ def main():
                 f"{validation_path}"
             )
 
-        df_validation = pd.read_excel(
-            validation_path,
-            sheet_name="Validation"
-        )
-
-        # ----------------------------------------------------
-        # Select valid data
-        # ----------------------------------------------------
-
-        data = df_validation[
-            np.isfinite(
-                df_validation["ideal_angle"]
-            )
-            & np.isfinite(
-                df_validation["real_mean"]
-            )
-        ].copy()
-
-        if data.empty:
-
-            raise ValueError(
-                "No valid data available for model fitting."
-            )
-
-        x = data[
-            "ideal_angle"
-        ].to_numpy()
-
-        y = data[
-            "real_mean"
-        ].to_numpy()
-
-        print(
-            f"   Number of data points: {len(x)}"
-        )
+        x, y, df_model_fitting = model_fitting.prepare_data_for_model_fitting(validation_path)
 
         # ----------------------------------------------------
         # Fit candidate models
@@ -305,7 +270,7 @@ def main():
             # ------------------------------------------------
 
             plot_model_fitting.plot_best_model(
-                df=data,
+                df=df_model_fitting,
                 protocol_path=cfg.PROTOCOL_PATH,
                 output_folder=cfg.MODEL_FITTING_PATH,
                 results=fitting_results,

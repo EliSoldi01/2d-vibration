@@ -1,8 +1,40 @@
 import numpy as np
 
 import config as cfg
-
 import core.analysis.model_fitting as mf
+
+
+# ============================================================
+# THRESHOLD UTILITIES
+# ============================================================
+
+def _normalize_thresholds(threshold):
+    """
+    Convert a scalar threshold or a sequence of thresholds
+    into a list of floats.
+
+    Examples
+    --------
+    0.95
+        -> [0.95]
+
+    [0.85, 0.90, 0.95]
+        -> [0.85, 0.90, 0.95]
+    """
+
+    if np.isscalar(threshold):
+        thresholds = [float(threshold)]
+    else:
+        thresholds = [float(value) for value in threshold]
+
+    for value in thresholds:
+        if not (0 < value < 1):
+            raise ValueError(
+                "All saturation thresholds must be between 0 and 1."
+            )
+
+    return thresholds
+
 
 # ============================================================
 # SATURATION
@@ -14,8 +46,9 @@ def get_saturation_info(
     threshold=cfg.SATURATION_THRESHOLD,
 ):
     """
-    Calculate saturation information for the
-    AIC-selected model.
+    Calculate saturation information for the AIC-selected model.
+
+    `threshold` must be a single value between 0 and 1.
 
     Definitions
     -----------
@@ -27,9 +60,9 @@ def get_saturation_info(
         Saturation is defined as the point at which
         the response reaches `threshold` of the asymptote.
 
-        y_sat = threshold * L
+        y_sat = threshold * |L|
 
-        x_sat = atanh(threshold) / k
+        x_sat = atanh(threshold) / |k|
 
     Logistic4:
         Saturation is defined relative to the range
@@ -44,7 +77,16 @@ def get_saturation_info(
     Returns
     -------
     dict
+        Saturation information for one threshold.
     """
+
+    if not np.isscalar(threshold):
+        raise ValueError(
+            "get_saturation_info() expects a single threshold. "
+            "Use get_saturation_infos() for multiple thresholds."
+        )
+
+    threshold = float(threshold)
 
     if not (0 < threshold < 1):
         raise ValueError(
@@ -52,24 +94,18 @@ def get_saturation_info(
         )
 
     if best_model_name is None:
-        best_model_name = mf.get_best_model(
-            results
-        )
+        best_model_name = mf.get_best_model(results)
 
     if best_model_name not in results:
         raise ValueError(
-            f"Model '{best_model_name}' "
-            "not found in results."
+            f"Model '{best_model_name}' not found in results."
         )
 
-    result = results[
-        best_model_name
-    ]
+    result = results[best_model_name]
 
     if not result.get("ok", False):
         raise ValueError(
-            f"Model '{best_model_name}' "
-            "is not valid."
+            f"Model '{best_model_name}' is not valid."
         )
 
     params = result["params"]
@@ -121,7 +157,8 @@ def get_saturation_info(
 
         L_min, L_max, k, D0 = params
 
-        # 5% and 95% points
+        # Lower and upper points corresponding to the
+        # selected saturation threshold.
         low = 1.0 - threshold
         high = threshold
 
@@ -141,16 +178,12 @@ def get_saturation_info(
 
         y_low = (
             L_min
-            + low * (
-                L_max - L_min
-            )
+            + low * (L_max - L_min)
         )
 
         y_high = (
             L_min
-            + high * (
-                L_max - L_min
-            )
+            + high * (L_max - L_min)
         )
 
         return {
@@ -158,6 +191,7 @@ def get_saturation_info(
             "has_saturation": True,
             "threshold": threshold,
 
+            # Main saturation point = upper point
             "x_sat": x_high,
             "y_sat": y_high,
 
@@ -180,6 +214,47 @@ def get_saturation_info(
         )
 
 
+def get_saturation_infos(
+    results,
+    best_model_name=None,
+    threshold=cfg.SATURATION_THRESHOLD,
+):
+    """
+    Calculate saturation information for multiple thresholds.
+
+    `threshold` can be either:
+
+        0.95
+
+    or:
+
+        [0.85, 0.90, 0.95]
+
+    Returns
+    -------
+    list of dict
+        One saturation dictionary for each threshold.
+    """
+
+    thresholds = _normalize_thresholds(threshold)
+
+    if best_model_name is None:
+        best_model_name = mf.get_best_model(results)
+
+    return [
+        get_saturation_info(
+            results=results,
+            best_model_name=best_model_name,
+            threshold=value,
+        )
+        for value in thresholds
+    ]
+
+
+# ============================================================
+# BACKWARD-COMPATIBLE SATURATION POINT
+# ============================================================
+
 def calculate_saturation_point(
     results,
     threshold=cfg.SATURATION_THRESHOLD,
@@ -190,8 +265,9 @@ def calculate_saturation_point(
     Returns the saturation x and y values
     for the AIC-selected model.
 
-    For logistic4, returns the upper
-    95% saturation point.
+    For logistic4, returns the upper saturation point.
+
+    This function expects a single threshold.
     """
 
     info = get_saturation_info(
@@ -219,21 +295,19 @@ def calculate_equivalent_stimulation_duration(
     pattern,
 ):
     """
-    Convert a saturation angle into the equivalent
-    stimulation duration using:
+    Convert an angle into the equivalent stimulation duration:
 
         angle = Kb * pb * D
               + Kt * pt * D
 
     therefore:
 
-        D = angle /
-            (Kb * pb + Kt * pt)
+        D = angle / (Kb * pb + Kt * pt)
 
     Parameters
     ----------
     saturation_angle : float
-        Saturation angle in degrees.
+        Angle in degrees.
 
     Kb : float
         Biceps coefficient.
@@ -242,13 +316,7 @@ def calculate_equivalent_stimulation_duration(
         Triceps coefficient.
 
     pattern : str
-        Pattern code in the format 'BBB_TTT',
-        where the first part represents biceps
-        activation and the second part represents
-        triceps activation.
-
-        For mixed patterns, the digits are interpreted
-        as activation levels.
+        Pattern code in the format 'BBB_TTT'.
 
     Returns
     -------
@@ -259,14 +327,6 @@ def calculate_equivalent_stimulation_duration(
     if not isinstance(pattern, str):
         raise ValueError(
             "pattern must be a string."
-        )
-
-    parts = pattern.split("_")
-
-    if len(parts) != 2:
-        raise ValueError(
-            f"Invalid pattern '{pattern}'. "
-            "Expected format '001_000'."
         )
 
     parts = pattern.split("_")
@@ -304,11 +364,12 @@ def calculate_equivalent_stimulation_duration(
             "a zero denominator."
         )
 
-    return (
-        saturation_angle
-        / denominator
-    )
+    return saturation_angle / denominator
 
+
+# ============================================================
+# SATURATION DURATIONS
+# ============================================================
 
 def calculate_saturation_durations(
     results,
@@ -317,135 +378,235 @@ def calculate_saturation_durations(
     threshold=cfg.SATURATION_THRESHOLD,
 ):
     """
-    Calculate equivalent stimulation durations
-    corresponding to saturation.
+    Calculate equivalent stimulation durations corresponding
+    to saturation.
+
+    `threshold` can be either a single value or a sequence.
 
     For Tanh:
         - biceps uses the positive saturation angle
         - triceps uses the negative saturation angle
 
     For Logistic4:
-        - biceps uses the upper 95% point
-        - triceps uses the lower 5% point
+        - biceps uses the upper saturation point
+        - triceps uses the lower saturation point
+
+    The returned duration information distinguishes between:
+
+        ideal duration:
+            duration corresponding to x_sat
+
+        real duration:
+            duration corresponding to y_sat
 
     Returns
     -------
-    dict
+    dict or list of dict
+        A dictionary for a single threshold, or a list of
+        dictionaries for multiple thresholds.
     """
 
-    saturation = get_saturation_info(
-        results,
-        threshold=threshold,
-    )
+    thresholds = _normalize_thresholds(threshold)
 
-    if not saturation["has_saturation"]:
+    outputs = []
 
-        return {
+    for current_threshold in thresholds:
+
+        saturation = get_saturation_info(
+            results,
+            threshold=current_threshold,
+        )
+
+        if not saturation["has_saturation"]:
+
+            outputs.append({
+                "model": saturation["model"],
+                "has_saturation": False,
+                "threshold": current_threshold,
+            })
+
+            continue
+
+        # ----------------------------------------------------
+        # Saturation angles
+        # ----------------------------------------------------
+
+        if saturation["model"] == "tanh":
+
+            # Symmetric saturation
+            theta_biceps_ideal = saturation["x_sat"]
+            theta_biceps_real = saturation["y_sat"]
+
+            theta_triceps_ideal = -saturation["x_sat"]
+            theta_triceps_real = -saturation["y_sat"]
+
+        elif saturation["model"] == "logistic4":
+
+            # Upper side = extension = biceps
+            theta_biceps_ideal = saturation["x_sat_high"]
+            theta_biceps_real = saturation["y_sat_high"]
+
+            # Lower side = flexion = triceps
+            theta_triceps_ideal = saturation["x_sat_low"]
+            theta_triceps_real = saturation["y_sat_low"]
+
+        else:
+
+            raise ValueError(
+                f"Unsupported model: {saturation['model']}"
+            )
+
+        # ----------------------------------------------------
+        # Pure stimulation patterns
+        # ----------------------------------------------------
+
+        biceps_pattern = next(
+            pattern
+            for pattern, label in cfg.PURE_PATTERNS.items()
+            if label == "b"
+        )
+
+        triceps_pattern = next(
+            pattern
+            for pattern, label in cfg.PURE_PATTERNS.items()
+            if label == "t"
+        )
+
+        # ----------------------------------------------------
+        # Ideal durations
+        # ----------------------------------------------------
+
+        duration_biceps_ideal = (
+            calculate_equivalent_stimulation_duration(
+                theta_biceps_ideal,
+                Kb,
+                Kt,
+                biceps_pattern,
+            )
+        )
+
+        duration_triceps_ideal = (
+            calculate_equivalent_stimulation_duration(
+                theta_triceps_ideal,
+                Kb,
+                Kt,
+                triceps_pattern,
+            )
+        )
+
+        # ----------------------------------------------------
+        # Real durations
+        # ----------------------------------------------------
+
+        duration_biceps_real = (
+            calculate_equivalent_stimulation_duration(
+                theta_biceps_real,
+                Kb,
+                Kt,
+                biceps_pattern,
+            )
+        )
+
+        duration_triceps_real = (
+            calculate_equivalent_stimulation_duration(
+                theta_triceps_real,
+                Kb,
+                Kt,
+                triceps_pattern,
+            )
+        )
+
+        output = {
             "model": saturation["model"],
-            "has_saturation": False,
+            "has_saturation": True,
+            "threshold": current_threshold,
+
+            # ------------------------------------------------
+            # Saturation coordinates
+            # ------------------------------------------------
+
+            "x_sat_biceps":
+                theta_biceps_ideal,
+
+            "y_sat_biceps":
+                theta_biceps_real,
+
+            "x_sat_triceps":
+                theta_triceps_ideal,
+
+            "y_sat_triceps":
+                theta_triceps_real,
+
+            # ------------------------------------------------
+            # Equivalent durations
+            # ------------------------------------------------
+
+            "duration_biceps_ideal":
+                duration_biceps_ideal,
+
+            "duration_biceps_real":
+                duration_biceps_real,
+
+            "duration_triceps_ideal":
+                duration_triceps_ideal,
+
+            "duration_triceps_real":
+                duration_triceps_real,
+
+            # ------------------------------------------------
+            # Backward-compatible names
+            # ------------------------------------------------
+
+            "saturation_angle_biceps":
+                theta_biceps_real,
+
+            "saturation_angle_triceps":
+                theta_triceps_real,
+
+            "duration_biceps":
+                duration_biceps_real,
+
+            "duration_triceps":
+                duration_triceps_real,
         }
 
-    # --------------------------------------------------------
-    # Saturation angles
-    # --------------------------------------------------------
+        # ----------------------------------------------------
+        # Logistic-specific information
+        # ----------------------------------------------------
 
-    if saturation["model"] == "tanh":
+        if saturation["model"] == "logistic4":
 
-        # Symmetric saturation
-        theta_biceps = saturation["y_sat"]
-        theta_triceps = -saturation["y_sat"]
+            output.update({
 
-    elif saturation["model"] == "logistic4":
+                "saturation_angle_low":
+                    saturation["y_sat_low"],
 
-        # Upper side = extension = biceps
-        theta_biceps = saturation[
-            "y_sat_high"
-        ]
+                "saturation_angle_high":
+                    saturation["y_sat_high"],
 
-        # Lower side = flexion = triceps
-        theta_triceps = saturation[
-            "y_sat_low"
-        ]
+                "x_saturation_angle_low":
+                    saturation["x_sat_low"],
 
-    else:
+                "x_saturation_angle_high":
+                    saturation["x_sat_high"],
 
-        raise ValueError(
-            f"Unsupported model: "
-            f"{saturation['model']}"
-        )
+                "duration_low_ideal":
+                    duration_triceps_ideal,
 
-    # --------------------------------------------------------
-    # Equivalent durations
-    # --------------------------------------------------------
+                "duration_low_real":
+                    duration_triceps_real,
 
-    biceps_pattern = next(
-        pattern
-        for pattern, label in cfg.PURE_PATTERNS.items()
-        if label == "b"
-    )
+                "duration_high_ideal":
+                    duration_biceps_ideal,
 
-    triceps_pattern = next(
-        pattern
-        for pattern, label in cfg.PURE_PATTERNS.items()
-        if label == "t"
-    )
-    
-    duration_biceps = (
-        calculate_equivalent_stimulation_duration(
-            theta_biceps,
-            Kb,
-            Kt,
-            biceps_pattern,
-        )
-    )
+                "duration_high_real":
+                    duration_biceps_real,
+            })
 
-    duration_triceps = (
-        calculate_equivalent_stimulation_duration(
-            theta_triceps,
-            Kb,
-            Kt,
-            triceps_pattern,
-        )
-    )
+        outputs.append(output)
 
-    output = {
-        "model": saturation["model"],
-        "has_saturation": True,
+    # Keep the old scalar API when a scalar threshold was used.
+    if np.isscalar(threshold):
+        return outputs[0]
 
-        "threshold": threshold,
-
-        "saturation_angle_biceps":
-            theta_biceps,
-
-        "saturation_angle_triceps":
-            theta_triceps,
-
-        "duration_biceps":
-            duration_biceps,
-
-        "duration_triceps":
-            duration_triceps,
-    }
-
-    # --------------------------------------------------------
-    # Logistic-specific information
-    # --------------------------------------------------------
-
-    if saturation["model"] == "logistic4":
-
-        output.update({
-
-            "saturation_angle_low":
-                saturation["y_sat_low"],
-
-            "saturation_angle_high":
-                saturation["y_sat_high"],
-
-            "duration_low_000_001":
-                duration_triceps,
-
-            "duration_high_001_000":
-                duration_biceps,
-        })
-
-    return output
+    return outputs

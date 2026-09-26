@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from scipy.optimize import curve_fit
 from scipy.stats import t
@@ -9,6 +10,46 @@ from core.analysis.metrics import (
     compute_aic,
 )
 
+# ============================================================
+# UTIL 
+# ============================================================
+def prepare_data_for_model_fitting(validation_data_path): 
+    """
+    
+    """
+    df_validation = pd.read_excel(
+        validation_data_path,
+        sheet_name="Validation"
+    )
+    
+    # ----------------------------------------------------
+    # Select valid data
+    # ----------------------------------------------------
+
+    df_model_fitting = df_validation[
+        np.isfinite(
+            df_validation["ideal_angle"]
+        )
+        & np.isfinite(
+            df_validation["real_mean"]
+        )
+    ].copy()
+
+    if df_model_fitting.empty:
+
+        raise ValueError(
+            "No valid data available for model fitting."
+        )
+
+    x = df_model_fitting[
+        "ideal_angle"
+    ].to_numpy()
+
+    y = df_model_fitting[
+        "real_mean"
+    ].to_numpy()
+
+    return x, y, df_model_fitting
 
 # ============================================================
 # MODELS

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 import config as cfg
-from core.analysis.model_fitting import model_confidence_band
+from core.analysis import saturation
 
 
 # ============================================================
@@ -32,18 +32,16 @@ PARAMETER_NAMES = {
 
 def build_parameters_table(results):
     """
-    Build a table containing parameter estimates, SEs,
-    and 95% confidence intervals for all fitted models.
+    Build the parameter-estimate table for all fitted models.
 
-    Parameters
-    ----------
-    results : dict
-        Output dictionary returned by fit_models().
-
-    Returns
+    Columns
     -------
-    pandas.DataFrame
-        One row per fitted parameter.
+    Model
+    Parameter
+    Estimate
+    SE
+    CI_lower
+    CI_upper
     """
 
     rows = []
@@ -55,7 +53,6 @@ def build_parameters_table(results):
 
         params = result.get("params")
         params_se = result.get("params_se")
-
         params_ci = result.get("params_ci")
 
         if params is None:
@@ -63,33 +60,38 @@ def build_parameters_table(results):
 
         parameter_names = PARAMETER_NAMES.get(
             model_name,
-            [f"parameter_{i + 1}" for i in range(len(params))]
+            [
+                f"parameter_{i + 1}"
+                for i in range(len(params))
+            ],
         )
 
         for i, estimate in enumerate(params):
 
-            if params_se is not None:
-                se = params_se[i]
-            else:
-                se = np.nan
+            se = (
+                params_se[i]
+                if params_se is not None
+                else np.nan
+            )
 
             if params_ci is not None:
+
                 ci_lower = params_ci[i, 0]
                 ci_upper = params_ci[i, 1]
+
             else:
+
                 ci_lower = np.nan
                 ci_upper = np.nan
 
-            rows.append(
-                {
-                    "Model": model_name,
-                    "Parameter": parameter_names[i],
-                    "Estimate": estimate,
-                    "SE": se,
-                    "CI_lower": ci_lower,
-                    "CI_upper": ci_upper,
-                }
-            )
+            rows.append({
+                "Model": model_name,
+                "Parameter": parameter_names[i],
+                "Estimate": estimate,
+                "SE": se,
+                "CI_lower": ci_lower,
+                "CI_upper": ci_upper,
+            })
 
     return pd.DataFrame(rows)
 
@@ -98,34 +100,22 @@ def build_parameters_table(results):
 # PERFORMANCE TABLE
 # ============================================================
 
-def build_performance_table(
-    results,
-    confidence=0.95,
-):
+def build_performance_table(results):
     """
-    Build a table containing model performance metrics.
+    Build the model-performance table.
 
-    Parameters
-    ----------
-    results : dict
-        Output dictionary returned by fit_models().
-    confidence : float
-        Confidence level used for the confidence band.
-
-    Returns
+    Columns
     -------
-    pandas.DataFrame
-        One row per fitted model.
+    Model
+    R2
+    AIC
+    Delta_AIC
     """
 
     rows = []
 
-    # --------------------------------------------------------
-    # Minimum AIC
-    # --------------------------------------------------------
-
     valid_aics = [
-        result["aic"]
+        result.get("aic", np.nan)
         for result in results.values()
         if result.get("ok", False)
         and np.isfinite(result.get("aic", np.nan))
@@ -137,10 +127,6 @@ def build_performance_table(
         else np.nan
     )
 
-    # --------------------------------------------------------
-    # Models
-    # --------------------------------------------------------
-
     for model_name, result in results.items():
 
         if not result.get("ok", False):
@@ -148,26 +134,234 @@ def build_performance_table(
 
         aic = result.get(
             "aic",
-            np.nan
+            np.nan,
         )
 
-        delta_aic = (
-            aic - min_aic
-            if np.isfinite(aic) and np.isfinite(min_aic)
-            else np.nan
+        if np.isfinite(aic) and np.isfinite(min_aic):
+            delta_aic = aic - min_aic
+        else:
+            delta_aic = np.nan
+
+        rows.append({
+            "Model": model_name,
+            "R2": result.get(
+                "r2_mean",
+                np.nan,
+            ),
+            "AIC": aic,
+            "Delta_AIC": delta_aic,
+        })
+
+    return pd.DataFrame(rows)
+
+
+# ============================================================
+# SATURATION TABLE
+# ============================================================
+
+def build_saturation_table(
+    results,
+    Kb=None,
+    Kt=None,
+    threshold=cfg.SATURATION_THRESHOLDS_SENSITIVITY,
+):
+    """
+    Build the saturation-information table.
+
+    Parameters
+    ----------
+    results : dict
+        Results returned by model_fitting.fit_models().
+
+    Kb : float, optional
+        Biceps coefficient used to convert angles into
+        equivalent stimulation durations.
+
+    Kt : float, optional
+        Triceps coefficient used to convert angles into
+        equivalent stimulation durations.
+
+    threshold : float or sequence
+        Saturation threshold(s).
+
+        Examples:
+            0.95
+            [0.85, 0.90, 0.95]
+
+    Returns
+    -------
+    pandas.DataFrame
+
+    Notes
+    -----
+    x_sat corresponds to the ideal/input angle of the
+    fitted model.
+
+    y_sat corresponds to the real/model-predicted angle.
+
+    The two corresponding stimulation durations are
+    calculated separately.
+    """
+
+    best_model_name = None
+
+    try:
+        best_model_name = (
+            __import__(
+                "core.analysis.model_fitting",
+                fromlist=["get_best_model"],
+            ).get_best_model(results)
+        )
+    except Exception:
+        pass
+
+    saturation_infos = saturation.get_saturation_infos(
+        results=results,
+        best_model_name=best_model_name,
+        threshold=threshold,
+    )
+
+    rows = []
+
+    # --------------------------------------------------------
+    # No finite saturation
+    # --------------------------------------------------------
+
+    for info in saturation_infos:
+
+        if not info["has_saturation"]:
+
+            rows.append({
+                "Model": info["model"],
+                "Threshold": info["threshold"],
+                "Side": None,
+                "X_ideal_deg": np.nan,
+                "Y_real_deg": np.nan,
+                "Duration_ideal_s": np.nan,
+                "Duration_real_s": np.nan,
+            })
+
+            continue
+
+        # ----------------------------------------------------
+        # Without Kb/Kt we can still report x/y saturation,
+        # but not equivalent stimulation durations.
+        # ----------------------------------------------------
+
+        if Kb is None or Kt is None:
+
+            if info["model"] == "tanh":
+
+                rows.extend([
+                    {
+                        "Model": info["model"],
+                        "Threshold": info["threshold"],
+                        "Side": "Biceps",
+                        "X_ideal_deg": info["x_sat"],
+                        "Y_real_deg": info["y_sat"],
+                        "Duration_ideal_s": np.nan,
+                        "Duration_real_s": np.nan,
+                    },
+                    {
+                        "Model": info["model"],
+                        "Threshold": info["threshold"],
+                        "Side": "Triceps",
+                        "X_ideal_deg": -info["x_sat"],
+                        "Y_real_deg": -info["y_sat"],
+                        "Duration_ideal_s": np.nan,
+                        "Duration_real_s": np.nan,
+                    },
+                ])
+
+            elif info["model"] == "logistic4":
+
+                rows.extend([
+                    {
+                        "Model": info["model"],
+                        "Threshold": info["threshold"],
+                        "Side": "Biceps",
+                        "X_ideal_deg": info["x_sat_high"],
+                        "Y_real_deg": info["y_sat_high"],
+                        "Duration_ideal_s": np.nan,
+                        "Duration_real_s": np.nan,
+                    },
+                    {
+                        "Model": info["model"],
+                        "Threshold": info["threshold"],
+                        "Side": "Triceps",
+                        "X_ideal_deg": info["x_sat_low"],
+                        "Y_real_deg": info["y_sat_low"],
+                        "Duration_ideal_s": np.nan,
+                        "Duration_real_s": np.nan,
+                    },
+                ])
+
+            continue
+
+        # ----------------------------------------------------
+        # Full duration calculation
+        # ----------------------------------------------------
+
+        durations = saturation.calculate_saturation_durations(
+            results=results,
+            Kb=Kb,
+            Kt=Kt,
+            threshold=info["threshold"],
         )
 
-        rows.append(
-            {
-                "Model": model_name,
-                "R2": result.get(
-                    "r2_mean",
-                    np.nan
-                ),
-                "AIC": aic,
-                "Delta_AIC": delta_aic,
-            }
-        )
+        if info["model"] == "tanh":
+
+            rows.extend([
+                {
+                    "Model": info["model"],
+                    "Threshold": info["threshold"],
+                    "Side": "Biceps",
+                    "X_ideal_deg": info["x_sat"],
+                    "Y_real_deg": info["y_sat"],
+                    "Duration_ideal_s":
+                        durations["duration_biceps_ideal"],
+                    "Duration_real_s":
+                        durations["duration_biceps_real"],
+                },
+                {
+                    "Model": info["model"],
+                    "Threshold": info["threshold"],
+                    "Side": "Triceps",
+                    "X_ideal_deg": -info["x_sat"],
+                    "Y_real_deg": -info["y_sat"],
+                    "Duration_ideal_s":
+                        durations["duration_triceps_ideal"],
+                    "Duration_real_s":
+                        durations["duration_triceps_real"],
+                },
+            ])
+
+        elif info["model"] == "logistic4":
+
+            rows.extend([
+                {
+                    "Model": info["model"],
+                    "Threshold": info["threshold"],
+                    "Side": "Biceps",
+                    "X_ideal_deg": info["x_sat_high"],
+                    "Y_real_deg": info["y_sat_high"],
+                    "Duration_ideal_s":
+                        durations["duration_biceps_ideal"],
+                    "Duration_real_s":
+                        durations["duration_biceps_real"],
+                },
+                {
+                    "Model": info["model"],
+                    "Threshold": info["threshold"],
+                    "Side": "Triceps",
+                    "X_ideal_deg": info["x_sat_low"],
+                    "Y_real_deg": info["y_sat_low"],
+                    "Duration_ideal_s":
+                        durations["duration_triceps_ideal"],
+                    "Duration_real_s":
+                        durations["duration_triceps_real"],
+                },
+            ])
 
     return pd.DataFrame(rows)
 
@@ -179,32 +373,24 @@ def build_performance_table(
 def save_model_fitting_results(
     results,
     output_path,
-    confidence=0.95,
+    Kb=None,
+    Kt=None,
+    threshold=cfg.SATURATION_THRESHOLDS_SENSITIVITY,
 ):
     """
-    Save model fitting results to an Excel workbook.
+    Save model-fitting results to an Excel workbook.
 
     Sheets
     ------
     Parameters
-        Parameter estimates, SEs, and 95% CIs.
+        Model parameter estimates, SEs and 95% CIs.
 
     Performance
-        R², AIC, ΔAIC, and confidence-band width summaries.
+        R², AIC and Delta-AIC.
 
-    Parameters
-    ----------
-    results : dict
-        Output dictionary returned by fit_models().
-    output_path : str or Path
-        Output Excel file path.
-    confidence : float
-        Confidence level used for the confidence band.
-
-    Returns
-    -------
-    str or Path
-        Path to the saved Excel file.
+    Saturation
+        Saturation points and equivalent stimulation
+        durations for the configured threshold(s).
     """
 
     parameters_df = build_parameters_table(
@@ -212,25 +398,37 @@ def save_model_fitting_results(
     )
 
     performance_df = build_performance_table(
-        results,
-        confidence=confidence,
+        results
+    )
+
+    saturation_df = build_saturation_table(
+        results=results,
+        Kb=Kb,
+        Kt=Kt,
+        threshold=threshold,
     )
 
     with pd.ExcelWriter(
         output_path,
-        engine="openpyxl"
+        engine="openpyxl",
     ) as writer:
 
         parameters_df.to_excel(
             writer,
             sheet_name="Parameters",
-            index=False
+            index=False,
         )
 
         performance_df.to_excel(
             writer,
             sheet_name="Performance",
-            index=False
+            index=False,
+        )
+
+        saturation_df.to_excel(
+            writer,
+            sheet_name="Saturation",
+            index=False,
         )
 
     return output_path
