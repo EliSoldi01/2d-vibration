@@ -4,6 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from PIL import Image
+from matplotlib.lines import Line2D
+
+import core.preprocessing.geometry as geometry
 
 
 # ============================================================
@@ -94,9 +97,16 @@ def get_metric_scale(protocol, metric):
 
 def get_start_position(protocol):
     """
-    Return the starting grid cell from the protocol.
+    Return the starting position in cm.
     """
-    return tuple(protocol["grid"]["start_cell"])
+    x_cell, y_cell = protocol["grid"]["start_cell"]
+    cell_size_cm = protocol["grid"]["cell_size_cm"]
+
+    return geometry.grid_point_to_cm(
+        x_cell,
+        y_cell,
+        cell_size_cm
+    )
 
 
 def get_durations(protocol, df, durations=None):
@@ -152,29 +162,42 @@ def draw_circles(
     metric,
     pattern_colors,
     scale_max,
-    start_pos
+    start_pos,
+    cell_size_cm
 ):
     """
     Draw one circle for each row of the dataframe.
+
+    Data coordinates are stored in grid-cell units,
+    but plotting coordinates are converted to cm.
     """
+
     for _, row in df.iterrows():
 
-        x = row["x"]
-        y = row["y"]
+        x_cm, y_cm = geometry.grid_point_to_cm(
+            row["x"],
+            row["y"],
+            cell_size_cm
+        )
+
         pattern = row["pattern_pair"]
 
         if pattern not in pattern_colors:
             continue
 
-        radius = 0.5 * (row[metric] / scale_max)
+        radius_cm = (
+            0.5
+            * (row[metric] / scale_max)
+            * cell_size_cm
+        )
 
         ax.add_patch(
             plt.Circle(
-                (x, y),
-                radius,
+                (x_cm, y_cm),
+                radius_cm,
                 color=pattern_colors[pattern],
                 fill=False,
-                linewidth=2,
+                linewidth=1.5,
                 alpha=0.7
             )
         )
@@ -182,9 +205,9 @@ def draw_circles(
     ax.scatter(
         *start_pos,
         c="red",
-        s=120,
+        s=100,
         marker="x",
-        linewidths=1
+        linewidths=1.2
     )
 
 
@@ -193,60 +216,109 @@ def setup_axis(
     protocol
 ):
     """
-    Configure the grid and axes according to the protocol.
+    Configure the grid and axes.
+
+    Matplotlib coordinates are expressed in cm,
+    while tick labels represent grid-cell coordinates.
     """
-    xlim = (1, protocol["grid"]["x"])
-    ylim = (1, protocol["grid"]["y"])
+
+    n_x = protocol["grid"]["x"]
+    n_y = protocol["grid"]["y"]
+    cell_size_cm = protocol["grid"]["cell_size_cm"]
+
+    # --------------------------------------------------------
+    # Axis limits in cm
+    # --------------------------------------------------------
+
+    x_min = 0.0
+    x_max = n_x * cell_size_cm
+
+    y_min = 0.0
+    y_max = n_y * cell_size_cm
 
     ax.set_xlim(
-        xlim[0] - 0.5,
-        xlim[1] + 0.5
+        x_min,
+        x_max
     )
 
     ax.set_ylim(
-        ylim[0] - 0.5,
-        ylim[1] + 0.5
+        y_min,
+        y_max
     )
 
-    ax.set_xticks(
-        np.arange(
-            xlim[0],
-            xlim[1] + 1
+    # --------------------------------------------------------
+    # Tick positions = cell centers in cm
+    # --------------------------------------------------------
+
+    x_cells = range(1, n_x + 1)
+    y_cells = range(1, n_y + 1)
+
+    x_ticks = [
+        geometry.grid_coordinate_to_cm(
+            x,
+            cell_size_cm
         )
+        for x in x_cells
+    ]
+
+    y_ticks = [
+        geometry.grid_coordinate_to_cm(
+            y,
+            cell_size_cm
+        )
+        for y in y_cells
+    ]
+
+    ax.set_xticks(x_ticks)
+    ax.set_yticks(y_ticks)
+
+    # --------------------------------------------------------
+    # Tick labels = cell numbers
+    # --------------------------------------------------------
+
+    ax.set_xticklabels(
+        range(1, n_x + 1)
     )
 
-    ax.set_yticks(
-        np.arange(
-            ylim[0],
-            ylim[1] + 1
-        )
+    ax.set_yticklabels(
+        range(1, n_y + 1)
     )
+
+    # --------------------------------------------------------
+    # Orientation
+    # --------------------------------------------------------
 
     ax.invert_yaxis()
     ax.set_aspect("equal")
 
-    for x in range(
-        xlim[0],
-        xlim[1] + 1
-    ):
+    # --------------------------------------------------------
+    # Grid lines = cell boundaries in cm
+    # --------------------------------------------------------
+
+    for x in range(n_x + 1):
+
+        x_cm = x * cell_size_cm
+
         ax.vlines(
-            x - 0.5,
-            ylim[0] - 0.5,
-            ylim[1] + 0.5,
+            x_cm,
+            y_min,
+            y_max,
             color="lightgrey",
-            linewidth=0.8
+            linewidth=0.8,
+            zorder=0
         )
 
-    for y in range(
-        ylim[0],
-        ylim[1] + 1
-    ):
+    for y in range(n_y + 1):
+
+        y_cm = y * cell_size_cm
+
         ax.hlines(
-            y - 0.5,
-            xlim[0] - 0.5,
-            xlim[1] + 0.5,
+            y_cm,
+            x_min,
+            x_max,
             color="lightgrey",
-            linewidth=0.8
+            linewidth=0.8,
+            zorder=0
         )
 
 
@@ -319,6 +391,291 @@ def draw_pattern_legend(
             fontsize=fontsize
         )
 
+def draw_interpolation_legend(
+    fig,
+    fontsize=13
+):
+    """
+    Draw legend entries for the start position
+    and quadratic interpolation.
+    """
+
+    handles = [
+        Line2D(
+            [0],
+            [0],
+            marker="x",
+            color="red",
+            linestyle="None",
+            markersize=9,
+            markeredgewidth=1.5,
+            label="Start position"
+        ),
+        Line2D(
+            [0],
+            [0],
+            color="black",
+            linewidth=2,
+            label="Quadratic fit interpolation"
+        )
+    ]
+
+    fig.legend(
+        handles=handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.80),
+        ncol=2,
+        frameon=False,
+        fontsize=fontsize
+    )
+
+def fit_quadratic_parametric_curve(
+    flexion_mean,
+    center,
+    extension_mean,
+    n_points=500,
+):
+    """
+    Fit a parametric quadratic curve through three points.
+
+    The three points are expressed in cm.
+    """
+
+    point_0 = np.asarray(
+        flexion_mean,
+        dtype=float
+    )
+
+    point_1 = np.asarray(
+        center,
+        dtype=float
+    )
+
+    point_2 = np.asarray(
+        extension_mean,
+        dtype=float
+    )
+
+    if n_points < 3:
+        raise ValueError(
+            "n_points must be at least 3."
+        )
+
+    distance_01 = np.linalg.norm(
+        point_1 - point_0
+    )
+
+    distance_12 = np.linalg.norm(
+        point_2 - point_1
+    )
+
+    total_distance = (
+        distance_01
+        + distance_12
+    )
+
+    if total_distance == 0:
+        raise ValueError(
+            "The three points cannot be coincident."
+        )
+
+    t_known = np.array([
+        0.0,
+        distance_01 / total_distance,
+        1.0
+    ])
+
+    basis = np.column_stack([
+        t_known**2,
+        t_known,
+        np.ones(3)
+    ])
+
+    coefficients_x = np.linalg.solve(
+        basis,
+        np.array([
+            point_0[0],
+            point_1[0],
+            point_2[0]
+        ])
+    )
+
+    coefficients_y = np.linalg.solve(
+        basis,
+        np.array([
+            point_0[1],
+            point_1[1],
+            point_2[1]
+        ])
+    )
+
+    t = np.linspace(
+        0.0,
+        1.0,
+        n_points
+    )
+
+    x_curve = (
+        coefficients_x[0] * t**2
+        + coefficients_x[1] * t
+        + coefficients_x[2]
+    )
+
+    y_curve = (
+        coefficients_y[0] * t**2
+        + coefficients_y[1] * t
+        + coefficients_y[2]
+    )
+
+    dx_dt = np.gradient(
+        x_curve,
+        t
+    )
+
+    dy_dt = np.gradient(
+        y_curve,
+        t
+    )
+
+    arc_length = np.trapezoid(
+        np.hypot(
+            dx_dt,
+            dy_dt
+        ),
+        t
+    )
+
+    return {
+        "x": x_curve,
+        "y": y_curve,
+        "length": float(arc_length),
+        "coefficients_x": tuple(coefficients_x),
+        "coefficients_y": tuple(coefficients_y),
+        "flexion_mean": tuple(point_0),
+        "center": tuple(point_1),
+        "extension_mean": tuple(point_2),
+    }
+
+def get_pattern_means(
+    df_mean,
+    pattern_column="pattern_pair",
+    x_column="x",
+    y_column="y",
+    cell_size_cm=4
+):
+    """
+    Return mean flexion and extension positions.
+
+    The dataframe coordinates are in grid-cell units.
+    The returned coordinates are converted to cm.
+    """
+
+    flexion = df_mean[
+        df_mean[pattern_column] == "000_111"
+    ]
+
+    extension = df_mean[
+        df_mean[pattern_column] == "111_000"
+    ]
+
+    if flexion.empty or extension.empty:
+        raise ValueError(
+            "The dataframe must contain both "
+            "flexion (000_111) and extension (111_000)."
+        )
+
+    flexion_mean_cell = (
+        float(flexion[x_column].mean()),
+        float(flexion[y_column].mean()),
+    )
+
+    extension_mean_cell = (
+        float(extension[x_column].mean()),
+        float(extension[y_column].mean()),
+    )
+
+    flexion_mean = geometry.grid_point_to_cm(
+        *flexion_mean_cell,
+        cell_size_cm
+    )
+
+    extension_mean = geometry.grid_point_to_cm(
+        *extension_mean_cell,
+        cell_size_cm
+    )
+
+    return (
+        flexion_mean,
+        extension_mean
+    )
+
+def plot_quadratic_parametric_curve(
+    ax,
+    df_mean,
+    center_cm,
+    cell_size_cm,
+    pattern_column="pattern_pair",
+    x_column="x",
+    y_column="y",
+    color="black",
+    linewidth=2.0,
+):
+    """
+    Fit and plot the quadratic trajectory in cm.
+    """
+
+    flexion_mean, extension_mean = get_pattern_means(
+        df_mean=df_mean,
+        cell_size_cm=cell_size_cm,
+        pattern_column=pattern_column,
+        x_column=x_column,
+        y_column=y_column,
+    )
+
+    result = fit_quadratic_parametric_curve(
+        flexion_mean=flexion_mean,
+        center=center_cm,
+        extension_mean=extension_mean,
+    )
+
+    a_x, b_x, c_x = result["coefficients_x"]
+    a_y, b_y, c_y = result["coefficients_y"]
+
+    equation_text = (
+        f"Length = {result['length']:.2f} cm\n"
+        f"x(t) = {a_x:.2f}t² + {b_x:.2f}t + {c_x:.2f}\n"
+        f"y(t) = {a_y:.2f}t² + {b_y:.2f}t + {c_y:.2f}"
+    )
+
+    ax.text(
+            0.01,
+            0.97,
+            f"{equation_text}",
+            transform=ax.transAxes,
+            fontsize=8,
+            ha="left",
+            va="top",
+            bbox={
+                "facecolor": "white",
+                "alpha": 0.85,
+                "edgecolor": "0.7",
+                "linewidth":1,
+                "pad": 3,
+            },
+            zorder=2,
+    )
+
+    ax.plot(
+        result["x"],
+        result["y"],
+        color=color,
+        linewidth=linewidth,
+        alpha=1.0,
+        zorder=20,
+        label="Quadratic parametric interpolation"
+    )
+
+    return result
 
 # ============================================================
 # Basic heatmap
@@ -378,13 +735,16 @@ def plot_heatmap(
         fontweight="bold"
     )
 
+    cell_size_cm = protocol["grid"]["cell_size_cm"]
+
     draw_circles(
         ax=ax,
         df=df,
         metric=metric,
         pattern_colors=pattern_colors,
         scale_max=scale_max,
-        start_pos=start_pos
+        start_pos=start_pos,
+        cell_size_cm=cell_size_cm
     )
 
     setup_axis(
@@ -428,7 +788,8 @@ def plot_heatmaps_by_duration(
     protocol,
     filename,
     durations=None,
-    metric="vividness"
+    metric="vividness",
+    plot_quadratic_curve = True
 ):
     """
     Plot multiple duration heatmaps horizontally.
@@ -526,14 +887,33 @@ def plot_heatmaps_by_duration(
             protocol
         )
 
+        cell_size_cm = protocol["grid"]["cell_size_cm"]
+
         draw_circles(
             ax=ax,
             df=df_mean,
             metric=metric,
             pattern_colors=pattern_colors,
             scale_max=scale_max,
-            start_pos=start_pos
+            start_pos=start_pos,
+            cell_size_cm=cell_size_cm
         )
+
+        if plot_quadratic_curve:
+            center_cm = start_pos
+
+            result = plot_quadratic_parametric_curve(
+                ax=ax,
+                df_mean=df_mean,
+                center_cm=center_cm,
+                cell_size_cm=cell_size_cm
+            )
+
+            print(
+                f"Duration {duration}s - "
+                f"quadratic curve length: "
+                f"{result['length']:.2f} cm"
+            )
 
         ax.set_xlabel(
             "Mediolateral axis",
@@ -552,8 +932,14 @@ def plot_heatmaps_by_duration(
         fontsize=13
     )
 
+    if plot_quadratic_curve:
+        draw_interpolation_legend(
+            fig,
+            fontsize=13
+        )
+
     fig.subplots_adjust(
-        top=0.78
+        top=0.72
     )
 
     plt.savefig(
@@ -635,7 +1021,8 @@ def plot_reps(
             metric=metric,
             pattern_colors=pattern_colors,
             scale_max=scale_max,
-            start_pos=start_pos
+            start_pos=start_pos,
+            cell_size_cm=protocol["grid"]["cell_size_cm"]
         )
 
         setup_axis(
@@ -928,7 +1315,7 @@ def save_all_subjects_heatmaps(
         protocol,
         df,
         durations
-    )
+    )[1:]
 
     if not durations:
         print(
@@ -1013,4 +1400,3 @@ def save_all_subjects_heatmaps(
         durations=durations,
         metric=metric
     )
-

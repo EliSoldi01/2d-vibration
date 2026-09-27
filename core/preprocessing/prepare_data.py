@@ -179,3 +179,59 @@ def prepare_data(df_main, df_subject, protocol, output_path = None):
         save_processed_data(df, output_file)
 
     return df
+
+def convert_dataframe_coordinates_to_cm(
+    df: pd.DataFrame,
+    cell_size_cm: float,
+) -> pd.DataFrame:
+    
+    df_cm = df.copy()
+
+    df_cm["x"] = df_cm["x"].apply(
+        geometry.grid_coordinate_to_cm,
+        cell_size_cm=cell_size_cm,
+    )
+    df_cm["y"] = df_cm["y"].apply(
+        geometry.grid_coordinate_to_cm,
+        cell_size_cm=cell_size_cm,
+    )
+
+    return df_cm
+
+def prepare_quadratic_interpolation_data(
+    df,
+    duration,
+    protocol,
+    metric="vividness"
+):
+    """
+    Select data for one duration and calculate the mean
+    position and mean metric for each pattern × repetition.
+    """
+
+    df = convert_dataframe_coordinates_to_cm(
+            df=df,
+            cell_size_cm=protocol["grid"]["cell_size_cm"],
+        )
+    
+    df_dur = df[
+        df["duration"] == duration
+    ]
+
+    df_mean = (
+        df_dur
+        .groupby(
+            [
+                "pattern_pair",
+                "rep"
+            ]
+        )
+        .agg({
+            "x": "mean",
+            "y": "mean",
+            metric: "mean"
+        })
+        .reset_index()
+    )
+
+    return df_mean

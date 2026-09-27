@@ -5,8 +5,8 @@ import numpy as np
 from core.utils.paths import create_directory
 from core.data_io import load_data, validate_data
 from core.preprocessing.prepare_data import prepare_data
-from core.analysis import extract_model_parameters, heatmaps, model_fitting
-from core.visualization import plot_model_fitting
+from core.analysis import extract_model_parameters, model_fitting
+from core.visualization import plot_heatmaps, plot_model_fitting
 from core.excels import model_results, model_fitting_results
 
 def main():
@@ -130,7 +130,7 @@ def main():
 
             for subject in subjects_list:
 
-                heatmaps.save_subject_heatmaps(
+                plot_heatmaps.save_subject_heatmaps(
                     df=df_analysis,
                     subject=subject,
                     protocol=protocol,
@@ -149,7 +149,7 @@ def main():
                 "   Generating group heatmaps..."
             )
 
-            heatmaps.save_all_subjects_heatmaps(
+            plot_heatmaps.save_all_subjects_heatmaps(
                 df=df_analysis,
                 protocol=protocol,
                 output_folder=cfg.HEATMAPS_RESULTS_PATH,

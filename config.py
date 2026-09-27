@@ -29,14 +29,16 @@ DATA_PROCESSED_PATH = RESULTS_PATH / "data_processed"
 HEATMAPS_RESULTS_PATH = RESULTS_PATH / "heatmaps"
 MODEL_PARAMETERS_PATH = RESULTS_PATH / "model_parameters"
 MODEL_FITTING_PATH = RESULTS_PATH / "model_fitting"
+REGRESSIONS_RESULTS_PATH = RESULTS_PATH / "regressions"
 
-ALL_PATHS = [RESULTS_PATH, DATA_PROCESSED_PATH, HEATMAPS_RESULTS_PATH, MODEL_PARAMETERS_PATH, MODEL_FITTING_PATH]
+ALL_PATHS = [RESULTS_PATH, DATA_PROCESSED_PATH, HEATMAPS_RESULTS_PATH, 
+             MODEL_PARAMETERS_PATH, MODEL_FITTING_PATH, REGRESSIONS_RESULTS_PATH]
 
 # ============================================================
 # ANALYSIS SETTINGS
 # ============================================================
 
-DO_HEATMAPS                              = False
+DO_HEATMAPS                              = True
 DO_SINGLE_SUBJECT_HEATMAPS               = False
 DO_REGRESSIONS                           = False
 DO_REGRESSION_ORIGINAL_DURATIONS_SUBJ    = False
@@ -44,8 +46,8 @@ DO_REGRESSION_ORDERED_DURATIONS_SUBJ     = False
 DO_REGRESSION_ORIGINAL_DURATIONS_GLOBAL  = False
 DO_REGRESSION_ORDERED_DURATIONS_GLOBAL   = False
 DO_STD_EXCEL                             = False
-DO_EXTRACT_MODEL_PARAMETERS              = True
-DO_MODEL_FITTING                         = True
+DO_EXTRACT_MODEL_PARAMETERS              = False
+DO_MODEL_FITTING                         = False
 DO_CROSS_VALIDATION                      = False
 DO_SINGLE_STIMULATION_FIT                = False
 
@@ -73,3 +75,6 @@ SATURATION_THRESHOLD = 0.95
 
 # Thresholds used for saturation sensitivity analysis in Excel
 SATURATION_THRESHOLDS_SENSITIVITY = [0.85, 0.90, 0.95]
+
+INCLUDE_SUBJECT_LEVEL_REGRESSION_PLOTS = True
+INCLUDE_GROUP_LEVEL_REGRESSION_PLOTS = True

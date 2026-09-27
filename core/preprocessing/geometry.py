@@ -14,6 +14,21 @@ def cell_to_cm(x, y, cell_size):
         (y - 1) * cell_size + cell_size / 2
     ])
 
+def grid_coordinate_to_cm(
+    coordinate: float,
+    cell_size_cm: float,
+) -> float:
+    return (coordinate - 1.0) * cell_size_cm + cell_size_cm / 2.0
+
+def grid_point_to_cm(
+    x_cell: float,
+    y_cell: float,
+    cell_size_cm: float,
+) -> tuple[float, float]:
+    return (
+        grid_coordinate_to_cm(x_cell, cell_size_cm),
+        grid_coordinate_to_cm(y_cell, cell_size_cm),
+    )
 
 def compute_elbow(
     start_cm,
