@@ -26,9 +26,10 @@ def add_presentation_order(df, subject_orders, duration_col="duration"):
     def map_order(row):
         """ Maps duration to presentation order (1-based) for the subject. """
         block_order = str(order_map.get(row["subject"]))
-        order = [int(d) for d in block_order]
+        # Divide la stringa usando il trattino '-' anziché iterare sui singoli caratteri
+        order = [int(d) for d in block_order.split("-")]
         return order.index(int(row[duration_col])) + 1
-    
+
 
     df["presentation_order"] = df.apply(map_order, axis=1)
     return df

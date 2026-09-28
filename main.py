@@ -153,7 +153,9 @@ def main():
                 df=df_analysis,
                 protocol=protocol,
                 output_folder=cfg.HEATMAPS_RESULTS_PATH,
-                metric="vividness"
+                metric="vividness",
+                plot_quadratic_interpolation = True,
+                show_plot=False
             )
 
     else:
@@ -238,6 +240,8 @@ def main():
             results=fitting_results,
             output_path=cfg.MODEL_FITTING_PATH
             / "model_fitting_results.xlsx",
+            Kb = analysis_results["global_parameters"]["Kb"],
+            Kt = analysis_results["global_parameters"]["Kt"]        
         )
 
         print(
@@ -277,6 +281,7 @@ def main():
                 plot_confidence_band=True,
                 plot_saturation_points=True,
                 confidence=0.95,
+                forced_best_model=None
             )
 
             print("Model fitting plots saved.")

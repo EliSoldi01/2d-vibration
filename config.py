@@ -5,8 +5,8 @@ import sys
 # ============================================================
 # EXPERIMENT
 # ============================================================
-EXPERIMENT_ID = "baseline"
-PROTOCOL_ID = "right_90deg"
+EXPERIMENT_ID = "illusion_or_confusion"
+PROTOCOL_ID = "right_90deg_IoC"
 
 # ============================================================
 # DATA PATHS
@@ -39,15 +39,15 @@ ALL_PATHS = [RESULTS_PATH, DATA_PROCESSED_PATH, HEATMAPS_RESULTS_PATH,
 # ============================================================
 
 DO_HEATMAPS                              = True
-DO_SINGLE_SUBJECT_HEATMAPS               = False
-DO_REGRESSIONS                           = False
+DO_SINGLE_SUBJECT_HEATMAPS               = True
+DO_REGRESSIONS                           = True
 DO_REGRESSION_ORIGINAL_DURATIONS_SUBJ    = False
 DO_REGRESSION_ORDERED_DURATIONS_SUBJ     = False
 DO_REGRESSION_ORIGINAL_DURATIONS_GLOBAL  = False
 DO_REGRESSION_ORDERED_DURATIONS_GLOBAL   = False
 DO_STD_EXCEL                             = False
-DO_EXTRACT_MODEL_PARAMETERS              = False
-DO_MODEL_FITTING                         = False
+DO_EXTRACT_MODEL_PARAMETERS              = True
+DO_MODEL_FITTING                         = True
 DO_CROSS_VALIDATION                      = False
 DO_SINGLE_STIMULATION_FIT                = False
 
@@ -65,13 +65,15 @@ SAVE_PLOTS            = True
 # ============================================================
 SUBJECTS_TO_PROCESS = None
 PURE_PATTERNS = {
-    "100_000": "b",
-    "000_100": "t"
+    "001_000": "b",
+    "000_001": "t"
 }
 PATTERNS_TO_PROCESS = ["100_000", "000_100"]
+FLEXION_PATTERN_FOR_QUADRATIC_INTERP = "000_001"
+EXTENSION_PATTERN_FOR_QUADRATIC_INTERP = "001_000"
 
 # Saturation point used for plots
-SATURATION_THRESHOLD = 0.95
+SATURATION_THRESHOLD = 0.9
 
 # Thresholds used for saturation sensitivity analysis in Excel
 SATURATION_THRESHOLDS_SENSITIVITY = [0.85, 0.90, 0.95]

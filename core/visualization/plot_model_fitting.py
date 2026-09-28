@@ -1,6 +1,7 @@
 import core.analysis.model_fitting as mf
 import core.analysis.saturation as sat
 import config as cfg
+import math
 
 def plot_comparison(
     x,
@@ -224,6 +225,7 @@ def plot_best_model(
     plot_saturation_points=False,
     confidence=0.95,
     output_name="best_model.png",
+    forced_best_model=None
 ):
     """
     Plot experimental group means (± SD) together with
@@ -316,9 +318,12 @@ def plot_best_model(
     # BEST MODEL
     # ========================================================
 
-    best_name = mf.get_best_model(
-        results
-    )
+    if forced_best_model is not None:
+        best_name = forced_best_model
+    else:
+        best_name = mf.get_best_model(
+            results
+        )
 
     best_model = results[
         best_name
@@ -359,7 +364,7 @@ def plot_best_model(
             *best_model["params"],
         )
 
-        style = "b--"
+        style = "k-"
 
     elif best_name == "tanh":
 
@@ -377,7 +382,7 @@ def plot_best_model(
             *best_model["params"],
         )
 
-        style = "r-"
+        style = "k-"
 
     else:
 
@@ -881,6 +886,9 @@ def plot_best_model(
     # ========================================================
 
     if sorted_handles:
+        num_items = len(sorted_labels)
+        max_rows = 18  # Numero massimo di righe desiderato
+        n_cols = math.ceil(num_items / max_rows)
 
         ax.legend(
             sorted_handles,
@@ -889,7 +897,7 @@ def plot_best_model(
             loc="center left",
             fontsize=16,
             frameon=False,
-            ncol=2,
+            ncol=n_cols,
             columnspacing=1.2,
             handletextpad=0.5,
             borderaxespad=0,

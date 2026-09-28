@@ -1,5 +1,6 @@
 import os
 
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -7,6 +8,7 @@ from PIL import Image
 from matplotlib.lines import Line2D
 
 import core.preprocessing.geometry as geometry
+import config as cfg
 
 
 # ============================================================
@@ -358,7 +360,9 @@ def draw_pattern_legend(
             0.89,
             0.85
         ]
-
+    elif n_patterns <=4:
+        rows = [ordered_patterns]
+        y_positions = [0.89]
     else:
         half = int(np.ceil(n_patterns / 2))
 
@@ -391,34 +395,39 @@ def draw_pattern_legend(
             fontsize=fontsize
         )
 
-def draw_interpolation_legend(
+def draw_extra_legend(
     fig,
-    fontsize=13
+    fontsize=13,
+    plot_quadratic_interpolation = True
 ):
     """
     Draw legend entries for the start position
     and quadratic interpolation.
     """
 
-    handles = [
-        Line2D(
-            [0],
-            [0],
-            marker="x",
-            color="red",
-            linestyle="None",
-            markersize=9,
-            markeredgewidth=1.5,
-            label="Start position"
-        ),
-        Line2D(
-            [0],
-            [0],
-            color="black",
-            linewidth=2,
-            label="Quadratic fit interpolation"
-        )
-    ]
+    handle_start_position = Line2D(
+                [0],
+                [0],
+                marker="x",
+                color="red",
+                linestyle="None",
+                markersize=9,
+                markeredgewidth=1.5,
+                label="Start position"
+            )
+
+    handle_quadratic_fit = Line2D(
+                [0],
+                [0],
+                color="black",
+                linewidth=2,
+                label="Quadratic fit interpolation"
+            )
+
+    handles = [handle_start_position]
+
+    if plot_quadratic_interpolation:
+        handles.append(handle_quadratic_fit)
 
     fig.legend(
         handles=handles,
@@ -558,6 +567,8 @@ def fit_quadratic_parametric_curve(
 
 def get_pattern_means(
     df_mean,
+    flexion_pattern,
+    extension_pattern,
     pattern_column="pattern_pair",
     x_column="x",
     y_column="y",
@@ -571,11 +582,11 @@ def get_pattern_means(
     """
 
     flexion = df_mean[
-        df_mean[pattern_column] == "000_111"
+        df_mean[pattern_column] == flexion_pattern
     ]
 
     extension = df_mean[
-        df_mean[pattern_column] == "111_000"
+        df_mean[pattern_column] == extension_pattern
     ]
 
     if flexion.empty or extension.empty:
@@ -614,6 +625,8 @@ def plot_quadratic_parametric_curve(
     df_mean,
     center_cm,
     cell_size_cm,
+    flexion_pattern,
+    extension_pattern,
     pattern_column="pattern_pair",
     x_column="x",
     y_column="y",
@@ -626,6 +639,8 @@ def plot_quadratic_parametric_curve(
 
     flexion_mean, extension_mean = get_pattern_means(
         df_mean=df_mean,
+        flexion_pattern=flexion_pattern,
+        extension_pattern=extension_pattern,
         cell_size_cm=cell_size_cm,
         pattern_column=pattern_column,
         x_column=x_column,
@@ -787,9 +802,12 @@ def plot_heatmaps_by_duration(
     df,
     protocol,
     filename,
+    flexion_pattern,
+    extension_pattern,
     durations=None,
     metric="vividness",
-    plot_quadratic_curve = True
+    plot_quadratic_interpolation = True,
+    show_plot=False
 ):
     """
     Plot multiple duration heatmaps horizontally.
@@ -899,14 +917,16 @@ def plot_heatmaps_by_duration(
             cell_size_cm=cell_size_cm
         )
 
-        if plot_quadratic_curve:
+        if plot_quadratic_interpolation:
             center_cm = start_pos
 
             result = plot_quadratic_parametric_curve(
                 ax=ax,
                 df_mean=df_mean,
                 center_cm=center_cm,
-                cell_size_cm=cell_size_cm
+                cell_size_cm=cell_size_cm,
+                flexion_pattern=flexion_pattern,
+                extension_pattern=extension_pattern
             )
 
             print(
@@ -932,11 +952,11 @@ def plot_heatmaps_by_duration(
         fontsize=13
     )
 
-    if plot_quadratic_curve:
-        draw_interpolation_legend(
-            fig,
-            fontsize=13
-        )
+    draw_extra_legend(
+        fig,
+        fontsize=13,
+        plot_quadratic_interpolation=plot_quadratic_interpolation
+    )
 
     fig.subplots_adjust(
         top=0.72
@@ -948,6 +968,8 @@ def plot_heatmaps_by_duration(
         bbox_inches="tight"
     )
 
+    if show_plot:
+        plt.show()
     plt.close()
 
     print(
@@ -1201,6 +1223,7 @@ def save_subject_heatmaps(
         subject
     )
 
+    print(f"    ->{subject}")
     if (
         os.path.exists(subject_folder)
         and not recalc_subject
@@ -1296,7 +1319,9 @@ def save_all_subjects_heatmaps(
     protocol,
     output_folder="Results_",
     metric="vividness",
-    durations=None
+    durations=None,
+    plot_quadratic_interpolation = True,
+    show_plot=False
 ):
     """
     Save average heatmaps across all subjects.
@@ -1397,6 +1422,10 @@ def save_all_subjects_heatmaps(
         df=df,
         protocol=protocol,
         filename=filename,
+        flexion_pattern=cfg.FLEXION_PATTERN_FOR_QUADRATIC_INTERP,
+        extension_pattern=cfg.EXTENSION_PATTERN_FOR_QUADRATIC_INTERP,
         durations=durations,
-        metric=metric
+        metric=metric,
+        plot_quadratic_interpolation=plot_quadratic_interpolation,
+        show_plot=show_plot
     )

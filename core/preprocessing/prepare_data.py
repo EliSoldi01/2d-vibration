@@ -124,8 +124,15 @@ def add_presentation_order(df, subject_orders):
 
 def add_expected_illusion(df, protocol):
     """
-    Add the expected kinesthetic illusion for each pattern pair.
+    Add the expected kinesthetic illusion for each pattern pair,
+    only if the column does not already exist.
     """
+    column_name = "expected_kinesthetic_illusion"
+
+    # Se la colonna esiste già, restituisce il dataframe così com'è
+    if column_name in df.columns:
+        return df
+
     df = df.copy()
 
     effect_map = {
@@ -137,7 +144,7 @@ def add_expected_illusion(df, protocol):
 
     df.insert(
         df.columns.get_loc("pattern_pair") + 1,
-        "expected_kinesthetic_illusion",
+        column_name,
         expected_illusion
     )
 

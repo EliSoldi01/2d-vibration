@@ -308,7 +308,6 @@ def build_saturation_table(
             Kt=Kt,
             threshold=info["threshold"],
         )
-
         if info["model"] == "tanh":
 
             rows.extend([
