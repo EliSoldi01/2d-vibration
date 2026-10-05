@@ -5,9 +5,9 @@ import numpy as np
 from core.utils.paths import create_directory
 from core.data_io import load_data, validate_data
 from core.preprocessing.prepare_data import prepare_data
-from core.analysis import extract_model_parameters, model_fitting, regressions
-from core.visualization import plot_heatmaps, plot_model_fitting, plot_regressions
-from core.excels import model_results, model_fitting_results, regressions_results
+from core.analysis import extract_model_parameters, model_fitting, regressions, leave_one_subject_out_cross_validation
+from core.visualization import plot_heatmaps, plot_model_fitting, plot_regressions, plot_losocv
+from core.excels import model_results, model_fitting_results, regressions_results, loso_results
 
 def main():
 
@@ -165,10 +165,10 @@ def main():
     # ========================================================
     # MODEL PARAMETERS
     # ========================================================
+    max_vividness = max(protocol["scales"]["vividness"]["values"]) if cfg.USE_VIVIDNESS_WEIGHTS else None
+
     if cfg.DO_EXTRACT_MODEL_PARAMETERS: 
         print("\n-> Running model analysis...")
-
-        max_vividness = max(protocol["scales"]["vividness"]["values"]) if cfg.USE_VIVIDNESS_WEIGHTS else None
 
         analysis_results = extract_model_parameters.run_model_analysis(df_analysis, subjects_list, max_vividness=max_vividness) 
         print("Model analysis completed.") 
@@ -194,7 +194,8 @@ def main():
             protocol=protocol,
             group_level=False,
             subject_level=False,
-            trial_level=True
+            trial_level=True,
+            max_vividness=max_vividness
         )
 
         regression_results = regression_analysis["results"]
@@ -349,6 +350,37 @@ def main():
     else:
 
         print("\n-> SKIPPING model fitting")
+
+    # ========================================================
+    # LEAVE ONE SUBJECT OUT CROSS VALIDATION
+    # ========================================================
+    
+    if cfg.DO_LOSOCV:
+
+        print("\n-> Running LOSO cross-validation...")
+
+        losocv_results = leave_one_subject_out_cross_validation.run_leave_one_subject_out_cross_validation(
+            df_analysis, protocol
+        )
+
+        print("LOSO cross-validation completed.")
+
+        # ----------------------------------------------------
+        # Save Excel results
+        # ----------------------------------------------------
+        print("\n-> Saving LOSO results...")
+        loso_results.save_loso_results(results=losocv_results, output_path=cfg.LOSOCV_PATH / "loso_results.xlsx")
+        print("LOSO results saved.")
+
+        # ----------------------------------------------------
+        # Plot
+        # ----------------------------------------------------
+        print("\n-> Generating LOSO plot...")
+        plot_losocv.plot_loso_performance(results=losocv_results, output_path=cfg.LOSOCV_PATH / "loso_performance.png")
+        print("LOSO plot saved.")
+        
+    else:
+        print("\n-> SKIPPING loso cross validation")
 
 if __name__ == "__main__":
     main()

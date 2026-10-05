@@ -77,7 +77,7 @@ def fit_linear_regression(x, y, weights=None):
 # WEIGHTS
 # ============================================================
 
-def _get_weights(df, max_vividness=3.0):
+def _get_weights(df, max_vividness=None):
     """
     Return regression weights according to the project configuration.
 
@@ -97,7 +97,7 @@ def _get_weights(df, max_vividness=3.0):
 # REGRESSION SUMMARY
 # ============================================================
 
-def regression_summary(df, x_col, y_col, group_col=None):
+def regression_summary(df, x_col, y_col, group_col=None, max_vividness=None):
     """
     Compute through-origin linear regression.
 
@@ -122,13 +122,13 @@ def regression_summary(df, x_col, y_col, group_col=None):
         Regression result, or one result per group.
     """
     if group_col is None:
-        weights = _get_weights(df)
+        weights = _get_weights(df, max_vividness=max_vividness)
         return fit_linear_regression(df[x_col], df[y_col], weights=weights)
 
     results = []
 
     for group, df_group in df.groupby(group_col):
-        weights = _get_weights(df_group)
+        weights = _get_weights(df_group, max_vividness=max_vividness)
         result = fit_linear_regression(df_group[x_col], df_group[y_col], weights=weights)
         results.append({group_col: group, **result})
 
@@ -205,7 +205,7 @@ def _print_regression_result(pattern, analysis_name, result):
 # GLOBAL / ALL SUBJECTS
 # ============================================================
 
-def run_global_regression(df, patterns, x_col, y_col, analysis_name):
+def run_global_regression(df, patterns, x_col, y_col, analysis_name, max_vividness = None):
     """
     Run one regression for each pattern at the global/group level.
 
@@ -242,7 +242,7 @@ def run_global_regression(df, patterns, x_col, y_col, analysis_name):
             results[pattern] = None
             continue
 
-        result = regression_summary(df_pattern, x_col=x_col, y_col=y_col)
+        result = regression_summary(df_pattern, x_col=x_col, y_col=y_col, max_vividness=max_vividness)
 
         #_print_regression_result(pattern, analysis_name, result)
         results[pattern] = result
@@ -254,7 +254,7 @@ def run_global_regression(df, patterns, x_col, y_col, analysis_name):
 # SUBJECT LEVEL
 # ============================================================
 
-def run_subject_regression(df, patterns, x_col, y_col):
+def run_subject_regression(df, patterns, x_col, y_col, max_vividness=None):
     """
     Run one regression for each subject and pattern.
 
@@ -294,6 +294,7 @@ def run_subject_regression(df, patterns, x_col, y_col):
             x_col=x_col,
             y_col=y_col,
             group_col="subject",
+            max_vividness=max_vividness
         )
 
     return results
@@ -303,7 +304,7 @@ def run_subject_regression(df, patterns, x_col, y_col):
 # TRIAL LEVEL
 # ============================================================
 
-def run_trial_regression(df, patterns, x_col, y_col, analysis_name):
+def run_trial_regression(df, patterns, x_col, y_col, analysis_name, max_vividness=None):
     """
     Run one regression for each pattern directly on individual trials.
 
@@ -337,7 +338,7 @@ def run_trial_regression(df, patterns, x_col, y_col, analysis_name):
             results[pattern] = None
             continue
 
-        result = regression_summary(df_pattern, x_col=x_col, y_col=y_col)
+        result = regression_summary(df_pattern, x_col=x_col, y_col=y_col, max_vividness=max_vividness)
 
         #_print_regression_result(pattern, analysis_name, result)
         results[pattern] = result
@@ -348,7 +349,7 @@ def run_trial_regression(df, patterns, x_col, y_col, analysis_name):
 # REGRESSION ANALYSIS
 # ============================================================
 
-def run_regression_analysis(df, protocol, group_level=True, subject_level=True, trial_level=True):
+def run_regression_analysis(df, protocol, group_level=True, subject_level=True, trial_level=True, max_vividness=None):
     """
     Run the selected regression analyses and prepare data for plotting.
 
@@ -406,18 +407,21 @@ def run_regression_analysis(df, protocol, group_level=True, subject_level=True, 
         results["group_level"]["angle_vs_duration"] = run_global_regression(
             df, patterns, "duration", "angle_deg",
             "GLOBAL: angle vs duration",
+            max_vividness=max_vividness
         )
 
         print("     -> Running global regressions 2/3: Vividness vs duration")
         results["group_level"]["vividness_vs_duration"] = run_global_regression(
             df, patterns, "duration", "vividness",
             "GLOBAL: vividness vs duration",
+            max_vividness=max_vividness
         )
 
         print("     -> Running global regressions 3/3: Angle vs vividness")
         results["group_level"]["angle_vs_vividness"] = run_global_regression(
             df, patterns, "vividness", "angle_deg",
             "GLOBAL: angle vs vividness",
+            max_vividness=max_vividness
         )
 
         plot_data["group_level"] = {
@@ -433,16 +437,19 @@ def run_regression_analysis(df, protocol, group_level=True, subject_level=True, 
         print("     -> Running subject regressions 1/3: Angle vs duration")
         results["subject_level"]["angle_vs_duration"] = run_subject_regression(
             df, patterns, "duration", "angle_deg",
+            max_vividness=max_vividness
         )
 
         print("     -> Running subject regressions 2/3: Vividness vs duration")
         results["subject_level"]["vividness_vs_duration"] = run_subject_regression(
             df, patterns, "duration", "vividness",
+            max_vividness=max_vividness
         )
 
         print("     -> Running subject regressions 3/3: Angle vs vividness")
         results["subject_level"]["angle_vs_vividness"] = run_subject_regression(
             df, patterns, "vividness", "angle_deg",
+            max_vividness=max_vividness
         )
 
         plot_data["subject_level"] = {
@@ -459,6 +466,7 @@ def run_regression_analysis(df, protocol, group_level=True, subject_level=True, 
         results["trial_level"]["angle_vs_duration"] = run_trial_regression(
             df, patterns, "duration", "angle_deg",
             "TRIAL LEVEL: angle vs duration",
+            max_vividness=max_vividness
         )
 
         plot_data["trial_level"] = {

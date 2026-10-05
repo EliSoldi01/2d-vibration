@@ -368,6 +368,20 @@ def compute_global_parameters(df, max_vividness=None):
         "R2_Kt": R2_Kt
     }
 
+def get_model_predictions(raw_df, Kb, Kt, max_vividness=None):
+    """
+    Return trial-level predictions and weights for an already-defined model.
+    """
+
+    if raw_df.empty or np.isnan(Kb) or np.isnan(Kt):
+        return np.array([]), np.array([]), np.array([])
+
+    return _predict_raw(
+        raw_df,
+        Kb,
+        Kt,
+        max_vividness=max_vividness
+    )
 
 # ============================================================
 # COMPLETE MODEL ANALYSIS

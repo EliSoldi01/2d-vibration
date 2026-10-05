@@ -30,9 +30,10 @@ HEATMAPS_RESULTS_PATH = RESULTS_PATH / "heatmaps"
 MODEL_PARAMETERS_PATH = RESULTS_PATH / "model_parameters"
 MODEL_FITTING_PATH = RESULTS_PATH / "model_fitting"
 REGRESSIONS_RESULTS_PATH = RESULTS_PATH / "regressions"
+LOSOCV_PATH = RESULTS_PATH / "losocv"
 
 ALL_PATHS = [RESULTS_PATH, DATA_PROCESSED_PATH, HEATMAPS_RESULTS_PATH, 
-             MODEL_PARAMETERS_PATH, MODEL_FITTING_PATH, REGRESSIONS_RESULTS_PATH]
+             MODEL_PARAMETERS_PATH, MODEL_FITTING_PATH, REGRESSIONS_RESULTS_PATH, LOSOCV_PATH]
 
 # ============================================================
 # ANALYSIS SETTINGS
@@ -44,13 +45,13 @@ DO_REGRESSIONS                           = True
 DO_STD_EXCEL                             = False
 DO_EXTRACT_MODEL_PARAMETERS              = False
 DO_MODEL_FITTING                         = False
-DO_CROSS_VALIDATION                      = False
+DO_LOSOCV                                = True
 DO_SINGLE_STIMULATION_FIT                = False
 
 # ============================================================
 # OPTIONAL
 # ============================================================
-USE_VIVIDNESS_WEIGHTS = False # If True, regression weights are computed from the vividness values.
+USE_VIVIDNESS_WEIGHTS = True # If True, regression weights are computed from the vividness values.
 RECALC_SUBJECT        = True  # If True, heatmaps of a subject for which the file already exists is recalculated. 
 UPDATE_GROUP_AVERAGE  = True  
 SAVE_PLOTS            = True
