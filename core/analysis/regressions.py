@@ -29,7 +29,6 @@ def fit_linear_regression(x, y, weights=None):
     dict
         Regression parameters and performance metrics.
     """
-
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
 
@@ -46,62 +45,24 @@ def fit_linear_regression(x, y, weights=None):
         weights = weights[valid]
 
     if len(x) < 2:
-        return {
-            "slope": np.nan,
-            "r_squared": np.nan,
-            "mae": np.nan,
-            "rmse": np.nan,
-            "n": len(x),
-        }
+        return {"slope": np.nan, "r_squared": np.nan, "mae": np.nan, "rmse": np.nan, "n": len(x)}
 
     X = x.reshape(-1, 1)
 
     model = LinearRegression(fit_intercept=False)
-    model.fit(
-        X,
-        y,
-        sample_weight=weights,
-    )
+    model.fit(X, y, sample_weight=weights)
 
     slope = float(model.coef_[0])
-
     y_pred = model.predict(X)
 
-    metrics = compute_r2_metrics(
-        y,
-        y_pred,
-        weights=weights,
-    )
+    metrics = compute_r2_metrics(y, y_pred, weights=weights)
 
     if weights is None:
-
-        mae = float(
-            np.mean(np.abs(y - y_pred))
-        )
-
-        rmse = float(
-            np.sqrt(
-                np.mean((y - y_pred) ** 2)
-            )
-        )
-
+        mae = float(np.mean(np.abs(y - y_pred)))
+        rmse = float(np.sqrt(np.mean((y - y_pred) ** 2)))
     else:
-
-        mae = float(
-            np.average(
-                np.abs(y - y_pred),
-                weights=weights,
-            )
-        )
-
-        rmse = float(
-            np.sqrt(
-                np.average(
-                    (y - y_pred) ** 2,
-                    weights=weights,
-                )
-            )
-        )
+        mae = float(np.average(np.abs(y - y_pred), weights=weights))
+        rmse = float(np.sqrt(np.average((y - y_pred) ** 2, weights=weights)))
 
     return {
         "slope": slope,
@@ -116,77 +77,60 @@ def fit_linear_regression(x, y, weights=None):
 # WEIGHTS
 # ============================================================
 
-def _get_weights(df):
+def _get_weights(df, max_vividness=3.0):
     """
     Return regression weights according to the project configuration.
 
-    If cfg.USE_VIVIDNESS_WEIGHTS is True:
-        weight = vividness / 3
+    If cfg.USE_VIVIDNESS_WEIGHTS is True, the weight is defined as:
 
-    Otherwise:
-        return None.
+        weight = vividness / max_vividness
+
+    Otherwise, None is returned.
     """
-
     if not cfg.USE_VIVIDNESS_WEIGHTS:
         return None
 
-    return (
-        df["vividness"]
-        .to_numpy(dtype=float)
-        / 3.0
-    )
+    return df["vividness"].to_numpy(dtype=float) / max_vividness
 
 
 # ============================================================
 # REGRESSION SUMMARY
 # ============================================================
 
-def regression_summary(
-    df,
-    x_col,
-    y_col,
-    group_col=None,
-):
+def regression_summary(df, x_col, y_col, group_col=None):
     """
     Compute through-origin linear regression.
 
-    If group_col is None:
-        one regression is computed on the complete dataframe.
+    If group_col is None, one regression is computed on the complete
+    dataframe. If group_col is provided, one regression is computed
+    separately for each group.
 
-    If group_col is provided:
-        one regression is computed for each group.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input data.
+    x_col : str
+        Name of the independent-variable column.
+    y_col : str
+        Name of the dependent-variable column.
+    group_col : str, optional
+        Column used to divide the data into separate regressions.
 
-    Vividness weighting is controlled globally by:
-
-        cfg.USE_VIVIDNESS_WEIGHTS
+    Returns
+    -------
+    dict or list of dict
+        Regression result, or one result per group.
     """
-
     if group_col is None:
-
         weights = _get_weights(df)
-
-        return fit_linear_regression(
-            df[x_col],
-            df[y_col],
-            weights=weights,
-        )
+        return fit_linear_regression(df[x_col], df[y_col], weights=weights)
 
     results = []
 
     for group, df_group in df.groupby(group_col):
-
         weights = _get_weights(df_group)
-
-        result = fit_linear_regression(
-            df_group[x_col],
-            df_group[y_col],
-            weights=weights,
-        )
-
-        results.append({
-            group_col: group,
-            **result,
-        })
+        result = fit_linear_regression(df_group[x_col], df_group[y_col], weights=weights)
+        results.append({group_col: group, **result})
 
     return results
 
@@ -197,28 +141,15 @@ def regression_summary(
 
 def aggregate_subject_means(df):
     """
-    Average repetitions for each:
-
-        subject × pattern × duration
-
-    This is the first aggregation step used by the
-    global and subject-level analyses.
+    Average repetitions for each subject × pattern × duration.
 
     Returns
     -------
     pandas.DataFrame
         One row per subject × pattern × duration.
     """
-
     return (
-        df.groupby(
-            [
-                "subject",
-                "pattern_pair",
-                "duration",
-            ],
-            as_index=False,
-        )
+        df.groupby(["subject", "pattern_pair", "duration"], as_index=False)
         .agg(
             angle_deg=("angle_deg", "mean"),
             vividness=("vividness", "mean"),
@@ -228,31 +159,20 @@ def aggregate_subject_means(df):
 
 def aggregate_global_means(df):
     """
-    Compute group-level means.
+    Compute group-level means from subject-level means.
 
-    The input dataframe is expected to contain one row per:
-
-        subject × pattern × duration
-
-    Therefore, this function computes the mean across subjects
-    for each:
-
-        pattern × duration
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Data containing one row per subject × pattern × duration.
 
     Returns
     -------
     pandas.DataFrame
         One row per pattern × duration.
     """
-
     return (
-        df.groupby(
-            [
-                "pattern_pair",
-                "duration",
-            ],
-            as_index=False,
-        )
+        df.groupby(["pattern_pair", "duration"], as_index=False)
         .agg(
             angle_deg=("angle_deg", "mean"),
             vividness=("vividness", "mean"),
@@ -264,21 +184,10 @@ def aggregate_global_means(df):
 # PRINTING
 # ============================================================
 
-def _print_regression_result(
-    pattern,
-    analysis_name,
-    result,
-):
-    """
-    Print a regression result in a consistent format.
-    """
-
+def _print_regression_result(pattern, analysis_name, result):
+    """Print a regression result in a consistent format."""
     if result is None:
-        print(
-            f"\nPattern: {pattern}"
-            f"\n  {analysis_name}"
-            f"\n  No result."
-        )
+        print(f"\nPattern: {pattern}\n  {analysis_name}\n  No result.")
         return
 
     print(
@@ -296,203 +205,46 @@ def _print_regression_result(
 # GLOBAL / ALL SUBJECTS
 # ============================================================
 
-def run_global_angle_vs_duration(
-    df,
-    patterns,
-):
+def run_global_regression(df, patterns, x_col, y_col, analysis_name):
     """
-    Global / ALL SUBJECTS regression:
+    Run one regression for each pattern at the global/group level.
 
-        angle_deg ~ duration
+    Repetitions are first averaged within each subject, then subjects
+    are averaged within each pattern × duration combination.
 
-    Aggregation:
-
-        repetitions
-            ↓
-        subject × pattern × duration means
-            ↓
-        pattern × duration group means
-            ↓
-        regression
-
-    One regression is performed for each pattern.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Trial-level input data.
+    patterns : iterable
+        Patterns to analyze.
+    x_col : str
+        Name of the independent-variable column.
+    y_col : str
+        Name of the dependent-variable column.
+    analysis_name : str
+        Description used when printing results.
 
     Returns
     -------
     dict
-        {
-            pattern: regression_result
-        }
+        Dictionary mapping each pattern to its regression result.
     """
-
-    # --------------------------------------------------------
-    # Step 1: average repetitions within each subject
-    # --------------------------------------------------------
-
     df_subject = aggregate_subject_means(df)
-
-    # --------------------------------------------------------
-    # Step 2: average subjects within each pattern × duration
-    # --------------------------------------------------------
-
     df_global = aggregate_global_means(df_subject)
-
-    results = {}
-
-    # --------------------------------------------------------
-    # Step 3: regression for each pattern
-    # --------------------------------------------------------
-
-    for pattern in patterns:
-
-        df_pattern = df_global[
-            df_global["pattern_pair"] == pattern
-        ].copy()
-
-        if df_pattern.empty:
-            print(
-                f"\nWARNING: no global data for pattern {pattern}"
-            )
-
-            results[pattern] = None
-            continue
-
-        result = regression_summary(
-            df=df_pattern,
-            x_col="duration",
-            y_col="angle_deg",
-        )
-
-        _print_regression_result(
-            pattern=pattern,
-            analysis_name=(
-                "GLOBAL: angle vs duration"
-            ),
-            result=result,
-        )
-
-        results[pattern] = result
-
-    return results
-
-
-def run_global_vividness_vs_duration(
-    df,
-    patterns,
-):
-    """
-    Global / ALL SUBJECTS regression:
-
-        vividness ~ duration
-
-    Aggregation:
-
-        repetitions
-            ↓
-        subject × pattern × duration means
-            ↓
-        pattern × duration group means
-            ↓
-        regression
-
-    One regression is performed for each pattern.
-    """
-
-    df_subject = aggregate_subject_means(df)
-
-    df_global = aggregate_global_means(df_subject)
-
     results = {}
 
     for pattern in patterns:
-
-        df_pattern = df_global[
-            df_global["pattern_pair"] == pattern
-        ].copy()
+        df_pattern = df_global[df_global["pattern_pair"] == pattern].copy()
 
         if df_pattern.empty:
-            print(
-                f"\nWARNING: no global data for pattern {pattern}"
-            )
-
+            print(f"\nWARNING: no global data for pattern {pattern}")
             results[pattern] = None
             continue
 
-        result = regression_summary(
-            df=df_pattern,
-            x_col="duration",
-            y_col="vividness",
-        )
+        result = regression_summary(df_pattern, x_col=x_col, y_col=y_col)
 
-        _print_regression_result(
-            pattern=pattern,
-            analysis_name=(
-                "GLOBAL: vividness vs duration"
-            ),
-            result=result,
-        )
-
-        results[pattern] = result
-
-    return results
-
-
-def run_global_angle_vs_vividness(
-    df,
-    patterns,
-):
-    """
-    Global / ALL SUBJECTS regression:
-
-        angle_deg ~ vividness
-
-    Aggregation:
-
-        repetitions
-            ↓
-        subject × pattern × duration means
-            ↓
-        pattern × duration group means
-            ↓
-        regression
-
-    One regression is performed for each pattern.
-    """
-
-    df_subject = aggregate_subject_means(df)
-
-    df_global = aggregate_global_means(df_subject)
-
-    results = {}
-
-    for pattern in patterns:
-
-        df_pattern = df_global[
-            df_global["pattern_pair"] == pattern
-        ].copy()
-
-        if df_pattern.empty:
-            print(
-                f"\nWARNING: no global data for pattern {pattern}"
-            )
-
-            results[pattern] = None
-            continue
-
-        result = regression_summary(
-            df=df_pattern,
-            x_col="vividness",
-            y_col="angle_deg",
-        )
-
-        _print_regression_result(
-            pattern=pattern,
-            analysis_name=(
-                "GLOBAL: angle vs vividness"
-            ),
-            result=result,
-        )
-
+        #_print_regression_result(pattern, analysis_name, result)
         results[pattern] = result
 
     return results
@@ -502,153 +254,47 @@ def run_global_angle_vs_vividness(
 # SUBJECT LEVEL
 # ============================================================
 
-def run_subject_angle_vs_duration(
-    df,
-    patterns,
-):
+def run_subject_regression(df, patterns, x_col, y_col):
     """
-    Subject-level regression:
+    Run one regression for each subject and pattern.
 
-        angle_deg ~ duration
+    Repetitions are first averaged within each subject × pattern ×
+    duration combination.
 
-    Aggregation:
-
-        repetitions
-            ↓
-        subject × pattern × duration means
-            ↓
-        regression separately for each subject and pattern.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Trial-level input data.
+    patterns : iterable
+        Patterns to analyze.
+    x_col : str
+        Name of the independent-variable column.
+    y_col : str
+        Name of the dependent-variable column.
 
     Returns
     -------
     dict
-        {
-            pattern: [
-                {
-                    "subject": ...,
-                    "slope": ...,
-                    ...
-                },
-                ...
-            ]
-        }
+        Dictionary mapping each pattern to a list of subject-level
+        regression results.
     """
-
     df_subject = aggregate_subject_means(df)
-
     results = {}
 
     for pattern in patterns:
-
-        df_pattern = df_subject[
-            df_subject["pattern_pair"] == pattern
-        ].copy()
+        df_pattern = df_subject[df_subject["pattern_pair"] == pattern].copy()
 
         if df_pattern.empty:
-            print(
-                f"\nWARNING: no subject-level data "
-                f"for pattern {pattern}"
-            )
-
+            print(f"\nWARNING: no subject-level data for pattern {pattern}")
             results[pattern] = []
             continue
 
-        pattern_results = regression_summary(
-            df=df_pattern,
-            x_col="duration",
-            y_col="angle_deg",
+        results[pattern] = regression_summary(
+            df_pattern,
+            x_col=x_col,
+            y_col=y_col,
             group_col="subject",
         )
-
-        results[pattern] = pattern_results
-
-    return results
-
-
-def run_subject_vividness_vs_duration(
-    df,
-    patterns,
-):
-    """
-    Subject-level regression:
-
-        vividness ~ duration
-
-    Regression is performed separately for each
-    subject and pattern.
-    """
-
-    df_subject = aggregate_subject_means(df)
-
-    results = {}
-
-    for pattern in patterns:
-
-        df_pattern = df_subject[
-            df_subject["pattern_pair"] == pattern
-        ].copy()
-
-        if df_pattern.empty:
-            print(
-                f"\nWARNING: no subject-level data "
-                f"for pattern {pattern}"
-            )
-
-            results[pattern] = []
-            continue
-
-        pattern_results = regression_summary(
-            df=df_pattern,
-            x_col="duration",
-            y_col="vividness",
-            group_col="subject",
-        )
-
-        results[pattern] = pattern_results
-
-    return results
-
-
-def run_subject_angle_vs_vividness(
-    df,
-    patterns,
-):
-    """
-    Subject-level regression:
-
-        angle_deg ~ vividness
-
-    Regression is performed separately for each
-    subject and pattern.
-    """
-
-    df_subject = aggregate_subject_means(df)
-
-    results = {}
-
-    for pattern in patterns:
-
-        df_pattern = df_subject[
-            df_subject["pattern_pair"] == pattern
-        ].copy()
-
-        if df_pattern.empty:
-            print(
-                f"\nWARNING: no subject-level data "
-                f"for pattern {pattern}"
-            )
-
-            results[pattern] = []
-            continue
-
-        pattern_results = regression_summary(
-            df=df_pattern,
-            x_col="vividness",
-            y_col="angle_deg",
-            group_col="subject",
-        )
-
-        results[pattern] = pattern_results
 
     return results
 
@@ -657,55 +303,169 @@ def run_subject_angle_vs_vividness(
 # TRIAL LEVEL
 # ============================================================
 
-def run_trial_angle_vs_duration(
-    df,
-    patterns,
-):
+def run_trial_regression(df, patterns, x_col, y_col, analysis_name):
     """
-    Trial-level regression:
-
-        angle_deg ~ duration
-
-    Regression is performed directly on the individual trials.
+    Run one regression for each pattern directly on individual trials.
 
     No averaging of repetitions is performed.
 
-    This analysis is intended to preserve the original
-    trial-level regression used for the pure-pattern
-    Kb / Kt estimation.
-    """
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Trial-level input data.
+    patterns : iterable
+        Patterns to analyze.
+    x_col : str
+        Name of the independent-variable column.
+    y_col : str
+        Name of the dependent-variable column.
+    analysis_name : str
+        Description used when printing results.
 
+    Returns
+    -------
+    dict
+        Dictionary mapping each pattern to its regression result.
+    """
     results = {}
 
     for pattern in patterns:
-
-        df_pattern = df[
-            df["pattern_pair"] == pattern
-        ].copy()
+        df_pattern = df[df["pattern_pair"] == pattern].copy()
 
         if df_pattern.empty:
-            print(
-                f"\nWARNING: no trial-level data "
-                f"for pattern {pattern}"
-            )
-
+            print(f"\nWARNING: no trial-level data for pattern {pattern}")
             results[pattern] = None
             continue
 
-        result = regression_summary(
-            df=df_pattern,
-            x_col="duration",
-            y_col="angle_deg",
-        )
+        result = regression_summary(df_pattern, x_col=x_col, y_col=y_col)
 
-        _print_regression_result(
-            pattern=pattern,
-            analysis_name=(
-                "TRIAL LEVEL: angle vs duration"
-            ),
-            result=result,
-        )
-
+        #_print_regression_result(pattern, analysis_name, result)
         results[pattern] = result
 
     return results
+
+# ============================================================
+# REGRESSION ANALYSIS
+# ============================================================
+
+def run_regression_analysis(df, protocol, group_level=True, subject_level=True, trial_level=True):
+    """
+    Run the selected regression analyses and prepare data for plotting.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Trial-level input data.
+    protocol : dict
+        Protocol information.
+    group_level : bool, optional
+        Whether to run group-level regressions.
+    subject_level : bool, optional
+        Whether to run subject-level regressions.
+    trial_level : bool, optional
+        Whether to run trial-level regressions.
+
+    Returns
+    -------
+    dict
+        Dictionary containing regression results and data for plotting.
+    """
+
+    patterns = cfg.PATTERNS_TO_PROCESS
+
+    if patterns is None:
+        patterns = sorted(df["pattern_pair"].dropna().unique())
+
+    results = {
+        "group_level": {},
+        "subject_level": {},
+        "trial_level": {},
+    }
+
+    plot_data = {
+        "group_level": {},
+        "subject_level": {},
+        "trial_level": {},
+    }
+
+    # --------------------------------------------------------
+    # Prepare subject means once if needed
+    # --------------------------------------------------------
+
+    df_subject = None
+
+    if group_level or subject_level:
+        df_subject = aggregate_subject_means(df)
+
+    # --------------------------------------------------------
+    # GROUP LEVEL
+    # --------------------------------------------------------
+
+    if group_level:
+        print("     -> Running global regressions 1/3: Angle vs duration")
+        results["group_level"]["angle_vs_duration"] = run_global_regression(
+            df, patterns, "duration", "angle_deg",
+            "GLOBAL: angle vs duration",
+        )
+
+        print("     -> Running global regressions 2/3: Vividness vs duration")
+        results["group_level"]["vividness_vs_duration"] = run_global_regression(
+            df, patterns, "duration", "vividness",
+            "GLOBAL: vividness vs duration",
+        )
+
+        print("     -> Running global regressions 3/3: Angle vs vividness")
+        results["group_level"]["angle_vs_vividness"] = run_global_regression(
+            df, patterns, "vividness", "angle_deg",
+            "GLOBAL: angle vs vividness",
+        )
+
+        plot_data["group_level"] = {
+            "subject_means": df_subject,
+            "group_means": aggregate_global_means(df_subject),
+        }
+
+    # --------------------------------------------------------
+    # SUBJECT LEVEL
+    # --------------------------------------------------------
+
+    if subject_level:
+        print("     -> Running subject regressions 1/3: Angle vs duration")
+        results["subject_level"]["angle_vs_duration"] = run_subject_regression(
+            df, patterns, "duration", "angle_deg",
+        )
+
+        print("     -> Running subject regressions 2/3: Vividness vs duration")
+        results["subject_level"]["vividness_vs_duration"] = run_subject_regression(
+            df, patterns, "duration", "vividness",
+        )
+
+        print("     -> Running subject regressions 3/3: Angle vs vividness")
+        results["subject_level"]["angle_vs_vividness"] = run_subject_regression(
+            df, patterns, "vividness", "angle_deg",
+        )
+
+        plot_data["subject_level"] = {
+            "subject_means": df_subject,
+        }
+
+    # --------------------------------------------------------
+    # TRIAL LEVEL
+    # --------------------------------------------------------
+
+    if trial_level:
+
+        print("     -> Running trial level regressions: Angle vs duration")
+        results["trial_level"]["angle_vs_duration"] = run_trial_regression(
+            df, patterns, "duration", "angle_deg",
+            "TRIAL LEVEL: angle vs duration",
+        )
+
+        plot_data["trial_level"] = {
+            "trial_data": df,
+        }
+
+    return {
+        "results": results,
+        "plot_data": plot_data,
+    }

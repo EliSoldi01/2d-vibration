@@ -10,29 +10,30 @@ from core.utils.patterns import pattern_sums
 # ============================================================
 # WEIGHTED REGRESSION
 # ============================================================
-def get_weights(vividness, n=None):
+def get_weights(vividness, n=None, max_vividness=None):
     """
     Return sample weights according to the configured analysis mode.
 
-    If USE_VIVIDNESS_WEIGHTS is True, weights are vividness / 3.
+    If USE_VIVIDNESS_WEIGHTS is True, weights are vividness / max_vividness.
     Otherwise, all samples receive equal weight.
     """
 
     if vividness is None:
         if n is None:
-            raise ValueError(
-                "n must be provided when vividness is None."
-            )
+            raise ValueError("n must be provided when vividness is None.")
         return np.ones(n, dtype=float)
 
     vividness = np.asarray(vividness)
 
     if cfg.USE_VIVIDNESS_WEIGHTS:
-        return vividness / 3.0
+        if max_vividness is None:
+            raise ValueError("max_vividness must be provided when USE_VIVIDNESS_WEIGHTS is True.")
+
+        return vividness / max_vividness
 
     return np.ones(len(vividness), dtype=float)
 
-def compute_regression_slope(x, y, vividness):
+def compute_regression_slope(x, y, vividness, max_vividness=None):
     """
     Fit a linear regression through the origin.
 
@@ -65,7 +66,7 @@ def compute_regression_slope(x, y, vividness):
     x = np.asarray(x).reshape(-1, 1)
     y = np.asarray(y)
 
-    weights = get_weights(vividness, n=len(vividness))
+    weights = get_weights(vividness, n=len(vividness), max_vividness=max_vividness)
 
     model = LinearRegression(
         fit_intercept=False
@@ -130,7 +131,7 @@ def predict_angle(pattern, duration, Kb, Kt):
         + Kt * pt * duration
     )
 
-def _predict_raw(raw_df, Kb, Kt):
+def _predict_raw(raw_df, Kb, Kt, max_vividness=None):
     """
     Compute model predictions for raw trial-level data.
 
@@ -165,7 +166,7 @@ def _predict_raw(raw_df, Kb, Kt):
         )
     ])
 
-    weights = get_weights(raw_df["vividness"].values)
+    weights = get_weights(raw_df["vividness"].values, max_vividness=max_vividness)
 
     return y_true, y_pred, weights
 
@@ -173,7 +174,7 @@ def _predict_raw(raw_df, Kb, Kt):
 # SUBJECT PARAMETERS
 # ============================================================
 
-def extract_subject_parameters(subj_df):
+def extract_subject_parameters(subj_df, max_vividness=None):
     """
     Estimate Kb and Kt for one subject.
 
@@ -209,7 +210,8 @@ def extract_subject_parameters(subj_df):
         slope, _, r2 = compute_regression_slope(
             x=pat_df["duration"].values,
             y=pat_df["angle_deg"].values,
-            vividness=pat_df["vividness"].values
+            vividness=pat_df["vividness"].values,
+            max_vividness=max_vividness
         )
 
         params[f"K{label}"] = slope
@@ -221,7 +223,7 @@ def extract_subject_parameters(subj_df):
 # MODEL PERFORMANCE
 # ============================================================
 
-def compute_model_metrics(raw_df, Kb, Kt):
+def compute_model_metrics(raw_df, Kb, Kt, max_vividness=None):
     """
     Evaluate an already-defined model on raw trial data.
 
@@ -255,7 +257,8 @@ def compute_model_metrics(raw_df, Kb, Kt):
     y_true, y_pred, weights = _predict_raw(
         raw_df,
         Kb,
-        Kt
+        Kt,
+        max_vividness=max_vividness
     )
 
     r2_zero = compute_r2_metrics(
@@ -289,7 +292,7 @@ def compute_model_metrics(raw_df, Kb, Kt):
 # ============================================================
 # GLOBAL PARAMETERS
 # ============================================================
-def compute_global_parameters(df):
+def compute_global_parameters(df, max_vividness=None):
     """
     Estimate global Kb and Kt from pooled trial-level data.
 
@@ -343,7 +346,8 @@ def compute_global_parameters(df):
         Kb, _, R2_Kb = compute_regression_slope(
             x=biceps_df["duration"].values,
             y=biceps_df["angle_deg"].values,
-            vividness=biceps_df["vividness"].values
+            vividness=biceps_df["vividness"].values,
+            max_vividness=max_vividness
         )
 
     if triceps_df.empty:
@@ -353,7 +357,8 @@ def compute_global_parameters(df):
         Kt, _, R2_Kt = compute_regression_slope(
             x=triceps_df["duration"].values,
             y=triceps_df["angle_deg"].values,
-            vividness=triceps_df["vividness"].values
+            vividness=triceps_df["vividness"].values,
+            max_vividness=max_vividness
         )
 
     return {
@@ -368,7 +373,7 @@ def compute_global_parameters(df):
 # COMPLETE MODEL ANALYSIS
 # ============================================================
 
-def run_model_analysis(df, subjects, protocol):
+def run_model_analysis(df, subjects, max_vividness=None):
     """
     Run the complete model analysis.
 
@@ -383,8 +388,8 @@ def run_model_analysis(df, subjects, protocol):
     subjects : list
         Subjects included in the analysis.
 
-    protocol : dict
-        Loaded experiment protocol.
+    max_vividness : float, optional
+        Maximum vividness value to use for normalization.
 
     Returns
     -------
@@ -406,7 +411,7 @@ def run_model_analysis(df, subjects, protocol):
         df_combined
             Trial-level data containing combined patterns only.
     """
-
+    
     # ========================================================
     # SUBJECT PARAMETERS
     # ========================================================
@@ -420,7 +425,8 @@ def run_model_analysis(df, subjects, protocol):
         ].copy()
 
         params = extract_subject_parameters(
-            subj_df
+            subj_df,
+            max_vividness=max_vividness
         )
 
         # ----------------------------------------------------
@@ -430,7 +436,8 @@ def run_model_analysis(df, subjects, protocol):
         metrics_all_subject = compute_model_metrics(
             raw_df=subj_df,
             Kb=params["Kb"],
-            Kt=params["Kt"]
+            Kt=params["Kt"],
+            max_vividness=max_vividness
         )
 
         combined_df_subject = subj_df[
@@ -442,7 +449,8 @@ def run_model_analysis(df, subjects, protocol):
         metrics_combined_subject = compute_model_metrics(
             raw_df=combined_df_subject,
             Kb=params["Kb"],
-            Kt=params["Kt"]
+            Kt=params["Kt"],
+            max_vividness=max_vividness
         )
 
         # ----------------------------------------------------
@@ -480,7 +488,8 @@ def run_model_analysis(df, subjects, protocol):
     # ========================================================
 
     global_parameters = compute_global_parameters(
-        df
+        df,
+        max_vividness=max_vividness
     )
 
     Kb_global = global_parameters["Kb"]
@@ -493,7 +502,8 @@ def run_model_analysis(df, subjects, protocol):
     global_metrics_all = compute_model_metrics(
         raw_df=df,
         Kb=Kb_global,
-        Kt=Kt_global
+        Kt=Kt_global,
+        max_vividness=max_vividness
     )
 
     df_combined = df[
@@ -505,7 +515,8 @@ def run_model_analysis(df, subjects, protocol):
     global_metrics_combined = compute_model_metrics(
         raw_df=df_combined,
         Kb=Kb_global,
-        Kt=Kt_global
+        Kt=Kt_global,
+        max_vividness=max_vividness
     )
 
     # ========================================================

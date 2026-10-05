@@ -1,3 +1,5 @@
+# core/excels/regressions_results.py
+
 from pathlib import Path
 
 import pandas as pd
@@ -8,58 +10,69 @@ import pandas as pd
 # ============================================================
 
 SHEET_NAMES = {
-    "angle_vs_duration": "angle_vs_duration",
-    "vividness_vs_duration": "vividness_vs_duration",
-    "angle_vs_vividness": "angle_vs_vividness",
-    "angle_vs_presentation_order": "angle_vs_order",
+    "angle_vs_duration": "angle_duration",
+    "vividness_vs_duration": "vividness_duration",
+    "angle_vs_vividness": "angle_vividness",
 }
 
 
 # ============================================================
 # BUILD DATAFRAMES
 # ============================================================
-
 def build_analysis_dataframes(results):
     """
     Convert regression results into one DataFrame per
-    analysis type.
-
-    Parameters
-    ----------
-    results : dict
-        Dictionary returned by the regression analyses.
-
-    Returns
-    -------
-    dict
-        Dictionary mapping analysis names to DataFrames.
+    analysis level and analysis type.
     """
 
     dataframes = {}
 
-    for analysis_name, analysis_results in results.items():
+    for level, level_results in results.items():
 
-        if analysis_results is None:
-            continue
+        for analysis_name, analysis_results in level_results.items():
 
-        rows = []
-
-        for pattern, result in analysis_results.items():
-
-            if result is None:
+            if analysis_results is None:
                 continue
 
-            rows.append({
-                "pattern": pattern,
-                "n": result["n"],
-                "slope": result["slope"],
-                "r_squared": result["r_squared"],
-                "mae": result["mae"],
-                "rmse": result["rmse"],
-            })
+            rows = []
 
-        if rows:
-            dataframes[analysis_name] = pd.DataFrame(rows)
+            for pattern, result in analysis_results.items():
+
+                if result is None:
+                    continue
+
+                if level == "subject_level":
+
+                    for subject_result in result:
+
+                        if subject_result is None:
+                            continue
+
+                        rows.append({
+                            "subject": subject_result["subject"],
+                            "pattern": pattern,
+                            "n": subject_result["n"],
+                            "slope": subject_result["slope"],
+                            "r_squared": subject_result["r_squared"],
+                            "mae": subject_result["mae"],
+                            "rmse": subject_result["rmse"],
+                        })
+
+                else:
+
+                    rows.append({
+                        "pattern": pattern,
+                        "n": result["n"],
+                        "slope": result["slope"],
+                        "r_squared": result["r_squared"],
+                        "mae": result["mae"],
+                        "rmse": result["rmse"],
+                    })
+
+            if rows:
+                dataframes[
+                    f"{level}_{analysis_name}"
+                ] = pd.DataFrame(rows)
 
     return dataframes
 
@@ -68,22 +81,12 @@ def build_analysis_dataframes(results):
 # SAVE EXCEL
 # ============================================================
 
-def save_regression_results(
-    results,
-    output_path,
-):
+def save_regression_results(results, output_path):
     """
     Save regression results to an Excel workbook.
 
-    One worksheet is created for each regression analysis.
-
-    Parameters
-    ----------
-    results : dict
-        Dictionary returned by the regression analyses.
-
-    output_path : str or Path
-        Output Excel file path.
+    A separate worksheet is created for each combination
+    of analysis level and regression analysis.
     """
 
     output_path = Path(output_path)
@@ -104,36 +107,34 @@ def save_regression_results(
         engine="openpyxl",
     ) as writer:
 
-        for analysis_name, df in dataframes.items():
+        for key, df in dataframes.items():
 
-            sheet_name = SHEET_NAMES.get(
+            level, analysis_name = key.split("_", 1)
+
+            analysis_sheet = SHEET_NAMES.get(
                 analysis_name,
                 analysis_name,
             )
+
+            sheet_name = f"{level[:3]}_{analysis_sheet}"
 
             df.to_excel(
                 writer,
-                sheet_name=sheet_name,
+                sheet_name=sheet_name[:31],
                 index=False,
             )
 
-            # ------------------------------------------------
-            # Basic formatting
-            # ------------------------------------------------
-
-            worksheet = writer.sheets[sheet_name]
+            worksheet = writer.sheets[
+                sheet_name[:31]
+            ]
 
             for column_cells in worksheet.columns:
 
-                max_length = 0
-
-                for cell in column_cells:
-
-                    if cell.value is not None:
-                        max_length = max(
-                            max_length,
-                            len(str(cell.value)),
-                        )
+                max_length = max(
+                    len(str(cell.value))
+                    for cell in column_cells
+                    if cell.value is not None
+                )
 
                 worksheet.column_dimensions[
                     column_cells[0].column_letter

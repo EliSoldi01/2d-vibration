@@ -5,9 +5,9 @@ import numpy as np
 from core.utils.paths import create_directory
 from core.data_io import load_data, validate_data
 from core.preprocessing.prepare_data import prepare_data
-from core.analysis import extract_model_parameters, model_fitting
-from core.visualization import plot_heatmaps, plot_model_fitting
-from core.excels import model_results, model_fitting_results
+from core.analysis import extract_model_parameters, model_fitting, regressions
+from core.visualization import plot_heatmaps, plot_model_fitting, plot_regressions
+from core.excels import model_results, model_fitting_results, regressions_results
 
 def main():
 
@@ -168,16 +168,76 @@ def main():
     if cfg.DO_EXTRACT_MODEL_PARAMETERS: 
         print("\n-> Running model analysis...")
 
-        analysis_results = extract_model_parameters.run_model_analysis( df_analysis, subjects_list, protocol ) 
+        max_vividness = max(protocol["scales"]["vividness"]["values"]) if cfg.USE_VIVIDNESS_WEIGHTS else None
+
+        analysis_results = extract_model_parameters.run_model_analysis(df_analysis, subjects_list, max_vividness=max_vividness) 
         print("Model analysis completed.") 
         print("\n-> Saving model results...") 
 
-        model_results.save_results( analysis_results, df_analysis, subjects_list, protocol, cfg.MODEL_PARAMETERS_PATH) 
+        model_results.save_results( analysis_results, df_analysis, subjects_list, protocol, cfg.MODEL_PARAMETERS_PATH, max_vividness=max_vividness) 
         print("Model results saved.") 
 
     else: 
 
         print("\n-> SKIPPING model parameters")
+
+    # ========================================================
+    # REGRESSIONS
+    # ========================================================
+
+    if cfg.DO_REGRESSIONS:
+
+        print("\n-> Running regressions...")
+
+        regression_analysis = regressions.run_regression_analysis(
+            df=df_analysis,
+            protocol=protocol,
+            group_level=False,
+            subject_level=False,
+            trial_level=True
+        )
+
+        regression_results = regression_analysis["results"]
+        regression_plot_data = regression_analysis["plot_data"]
+
+        print("Regression analysis completed.")
+
+        # ----------------------------------------------------
+        # Save Excel results
+        # ----------------------------------------------------
+
+        print("\n-> Saving regression results...")
+
+        regressions_results.save_regression_results(
+            results=regression_results,
+            output_path=cfg.REGRESSIONS_RESULTS_PATH
+            / "regression_results.xlsx",
+        )
+
+        print("Regression results saved.")
+
+        # ----------------------------------------------------
+        # Plots
+        # ----------------------------------------------------
+
+        if cfg.SAVE_PLOTS:
+
+            print("\n-> Generating regression plots...")
+
+            plot_regressions.run_regression_plots(
+                plot_data=regression_plot_data,
+                results=regression_results,
+                protocol=protocol,
+                group_level=False,
+                subject_level=False,
+                trial_level=True
+            )
+
+            print("Regression plots saved.")
+
+    else:
+
+        print("\n-> SKIPPING regressions")
 
     # ========================================================
     # MODEL FITTING

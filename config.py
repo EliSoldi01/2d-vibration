@@ -5,8 +5,8 @@ import sys
 # ============================================================
 # EXPERIMENT
 # ============================================================
-EXPERIMENT_ID = "illusion_or_confusion"
-PROTOCOL_ID = "right_90deg_IoC"
+EXPERIMENT_ID = "baseline"
+PROTOCOL_ID = "right_90deg"
 
 # ============================================================
 # DATA PATHS
@@ -38,25 +38,21 @@ ALL_PATHS = [RESULTS_PATH, DATA_PROCESSED_PATH, HEATMAPS_RESULTS_PATH,
 # ANALYSIS SETTINGS
 # ============================================================
 
-DO_HEATMAPS                              = True
-DO_SINGLE_SUBJECT_HEATMAPS               = True
+DO_HEATMAPS                              = False
+DO_SINGLE_SUBJECT_HEATMAPS               = False
 DO_REGRESSIONS                           = True
-DO_REGRESSION_ORIGINAL_DURATIONS_SUBJ    = False
-DO_REGRESSION_ORDERED_DURATIONS_SUBJ     = False
-DO_REGRESSION_ORIGINAL_DURATIONS_GLOBAL  = False
-DO_REGRESSION_ORDERED_DURATIONS_GLOBAL   = False
 DO_STD_EXCEL                             = False
-DO_EXTRACT_MODEL_PARAMETERS              = True
-DO_MODEL_FITTING                         = True
+DO_EXTRACT_MODEL_PARAMETERS              = False
+DO_MODEL_FITTING                         = False
 DO_CROSS_VALIDATION                      = False
 DO_SINGLE_STIMULATION_FIT                = False
 
 # ============================================================
 # OPTIONAL
 # ============================================================
-USE_VIVIDNESS_WEIGHTS = True
-RECALC_SUBJECT        = True # If True, heatmaps of a subject for which the file already exists is recalculated. 
-UPDATE_GROUP_AVERAGE  = True
+USE_VIVIDNESS_WEIGHTS = False # If True, regression weights are computed from the vividness values.
+RECALC_SUBJECT        = True  # If True, heatmaps of a subject for which the file already exists is recalculated. 
+UPDATE_GROUP_AVERAGE  = True  
 SAVE_PLOTS            = True
 
 
@@ -65,15 +61,15 @@ SAVE_PLOTS            = True
 # ============================================================
 SUBJECTS_TO_PROCESS = None
 PURE_PATTERNS = {
-    "001_000": "b",
-    "000_001": "t"
+    "100_000": "b",
+    "000_100": "t"
 }
 PATTERNS_TO_PROCESS = ["100_000", "000_100"]
-FLEXION_PATTERN_FOR_QUADRATIC_INTERP = "000_001"
-EXTENSION_PATTERN_FOR_QUADRATIC_INTERP = "001_000"
+FLEXION_PATTERN_FOR_QUADRATIC_INTERP = "000_111"
+EXTENSION_PATTERN_FOR_QUADRATIC_INTERP = "111_000"
 
 # Saturation point used for plots
-SATURATION_THRESHOLD = 0.9
+SATURATION_THRESHOLD = 0.95
 
 # Thresholds used for saturation sensitivity analysis in Excel
 SATURATION_THRESHOLDS_SENSITIVITY = [0.85, 0.90, 0.95]

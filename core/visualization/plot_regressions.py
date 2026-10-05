@@ -1,4 +1,4 @@
-# core/visualization/regression_plots.py
+# core/visualization/plot_regressions.py
 
 from pathlib import Path
 
@@ -6,101 +6,109 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import config as cfg
-from core.analysis.regressions import (
-    aggregate_subject_means,
-    aggregate_global_means,
-    fit_linear_regression,
-)
 
 
 # ============================================================
-# PLOT SETTINGS
+# ANALYSIS SETTINGS
 # ============================================================
 
-OUTPUT_FOLDER = Path("Results") / "regressions"
+ANALYSIS_COLUMNS = {
+    "angle_vs_duration": {
+        "x": "duration",
+        "y": "angle_deg",
+        "xlabel": "Duration (s)",
+        "ylabel": "Angle (°)",
+    },
+    "vividness_vs_duration": {
+        "x": "duration",
+        "y": "vividness",
+        "xlabel": "Duration (s)",
+        "ylabel": "Vividness",
+    },
+    "angle_vs_vividness": {
+        "x": "vividness",
+        "y": "angle_deg",
+        "xlabel": "Vividness",
+        "ylabel": "Angle (°)",
+    },
+}
 
 
 # ============================================================
-# SUBJECT-LEVEL PLOT
+# GENERIC HELPERS
 # ============================================================
 
-def plot_subject_angle_vs_duration(
-    df_subject,
-    subject,
-    pattern,
-    protocol,
-    output_folder=cfg.REGRESSIONS_RESULTS_PATH / "subject_level",
-):
+def _get_analysis_settings(analysis_name):
     """
-    Plot angle vs duration for one subject and one pattern.
+    Return plotting settings for a regression analysis.
 
-    Input:
-        df_subject:
-            Data already aggregated as:
-            subject × pattern × duration
+    Parameters
+    ----------
+    analysis_name : str
+        Name of the regression analysis.
 
-    The regression is fitted on the three subject-level means
-    (one mean per duration).
-
-    Returns:
-        regression result dictionary.
+    Returns
+    -------
+    dict
+        X/y columns and axis labels.
     """
 
-    df = df_subject[
-        (df_subject["subject"] == subject)
-        & (df_subject["pattern_pair"] == pattern)
-    ].copy()
-
-    if df.empty:
-        print(
-            f"WARNING: no data for subject {subject}, "
-            f"pattern {pattern}"
+    if analysis_name not in ANALYSIS_COLUMNS:
+        raise ValueError(
+            f"Unknown regression analysis: {analysis_name}"
         )
-        return None
 
-    df = df.sort_values("duration")
+    return ANALYSIS_COLUMNS[analysis_name]
 
-    if len(df) < 2:
-        print(
-            f"WARNING: not enough data for subject {subject}, "
-            f"pattern {pattern}"
-        )
-        return None
+def _get_subject_result(subject_results, subject):
+    """
+    Return the regression result for a specific subject.
+    """
 
-    # --------------------------------------------------------
-    # Regression
-    # --------------------------------------------------------
+    for result in subject_results:
+        if result["subject"] == subject:
+            return result
 
-    result = fit_linear_regression(
-        x=df["duration"],
-        y=df["angle_deg"],
-    )
+    return None
 
-    # --------------------------------------------------------
-    # Plot
-    # --------------------------------------------------------
+def _get_pattern_to_process():
+    """
+    Return the list of patterns to process.
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    If cfg.PATTERNS_TO_PROCESS is None, return all patterns.
+    """
 
-    # Subject-level means
-    ax.scatter(
-        df["duration"],
-        df["angle_deg"],
-        s=70,
-        zorder=3,
-        label="Subject mean",
-    )
+    if cfg.PATTERNS_TO_PROCESS is not None:
+        return cfg.PATTERNS_TO_PROCESS
 
-    # --------------------------------------------------------
-    # Regression line
-    # --------------------------------------------------------
+    # If no specific patterns are specified, return all patterns
+    # found in the regression results.
+    all_patterns = set()
 
-    x_line = np.linspace(
-        df["duration"].min(),
-        df["duration"].max(),
-        200,
-    )
+    for level_results in [
+        "group_level",
+        "subject_level",
+        "trial_level",
+    ]:
+        if level_results in cfg.REGRESSION_RESULTS:
+            for analysis_results in cfg.REGRESSION_RESULTS[level_results].values():
+                all_patterns.update(analysis_results.keys())
 
+    return sorted(all_patterns)
+
+
+def _plot_regression_line(ax, result, x_min, x_max):
+    """
+    Plot a through-origin regression line from a fitted result.
+    """
+
+    if result is None:
+        return
+
+    if not np.isfinite(result["slope"]):
+        return
+
+    x_line = np.linspace(x_min, x_max, 200)
     y_line = result["slope"] * x_line
 
     ax.plot(
@@ -114,9 +122,13 @@ def plot_subject_angle_vs_duration(
         zorder=2,
     )
 
-    # --------------------------------------------------------
-    # Formatting
-    # --------------------------------------------------------
+
+def _format_regression_plot(ax, analysis_name, protocol, title):
+    """
+    Apply common formatting to a regression plot.
+    """
+
+    settings = _get_analysis_settings(analysis_name)
 
     ax.axhline(
         0,
@@ -125,155 +137,89 @@ def plot_subject_angle_vs_duration(
         alpha=0.5,
     )
 
-    ax.set_xlabel("Duration (s)")
-    ax.set_ylabel("Angle (°)")
+    ax.set_xlabel(settings["xlabel"])
+    ax.set_ylabel(settings["ylabel"])
 
-    ax.set_ylim(-20, +20)
-    ax.set_xticks(protocol["blocks"]["durations"])
+    if settings["x"] == "duration":
+        ax.set_xticks(protocol["blocks"]["durations"])
 
-    ax.set_title(
-        f"{subject} – {pattern}\n"
-        "Angle vs Duration"
-    )
-
+    ax.set_title(title)
     ax.grid(False)
-
-    ax.legend(
-        fontsize=9,
-        loc="best",
-    )
-
-    # --------------------------------------------------------
-    # Save
-    # --------------------------------------------------------
-
-    save_folder = (
-        Path(output_folder)
-        / subject
-        / pattern
-    )
-
-    save_folder.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    save_path = (
-        save_folder
-        / "angle_vs_duration.png"
-    )
-
-    fig.tight_layout()
-    fig.savefig(
-        save_path,
-        dpi=200,
-    )
-    plt.close(fig)
-
-    return result
+    ax.legend(fontsize=9, loc="best")
 
 
 # ============================================================
 # GROUP-LEVEL PLOT
 # ============================================================
 
-def plot_group_angle_vs_duration(
-    df,
+def plot_group_regression(
+    plot_data,
+    results,
     pattern,
+    analysis_name,
     protocol,
     output_folder=cfg.REGRESSIONS_RESULTS_PATH / "group_level",
 ):
     """
-    Plot group-level angle vs duration for one pattern.
+    Plot one group-level regression.
 
-    Aggregation:
-        repetitions
-            ↓
-        subject × pattern × duration means
-            ↓
-        group mean ± SD across subjects
-            ↓
-        regression on the three group means
+    Parameters
+    ----------
+    plot_data : pandas.DataFrame
+        Group-level data already prepared by the regression analysis.
+        Must contain the group mean and, when available, SD columns.
 
-    Returns:
-        regression result dictionary.
+    results : dict
+        Regression result for the selected pattern and analysis.
+
+    pattern : str
+        Stimulation pattern.
+
+    analysis_name : str
+        Regression analysis to plot.
+
+    protocol : dict
+        Experiment protocol.
+
+    output_folder : Path
+        Output directory.
+
+    Returns
+    -------
+    Path
+        Path of the saved figure.
     """
 
-    # --------------------------------------------------------
-    # Aggregate repetitions within subject
-    # --------------------------------------------------------
+    settings = _get_analysis_settings(analysis_name)
 
-    df_subject = aggregate_subject_means(df)
-
-    # --------------------------------------------------------
-    # Aggregate subjects into group means
-    # --------------------------------------------------------
-
-    df_group = aggregate_global_means(df_subject)
-
-    df_group = df_group[
-        df_group["pattern_pair"] == pattern
+    df = plot_data[
+        plot_data["pattern_pair"] == pattern
     ].copy()
 
-    if df_group.empty:
+    if df.empty:
         print(
-            f"WARNING: no group-level data for pattern {pattern}"
+            f"WARNING: no group-level data for "
+            f"pattern {pattern}, analysis {analysis_name}"
         )
         return None
 
-    df_group = df_group.sort_values("duration")
+    df = df.sort_values(settings["x"])
 
-    if len(df_group) < 2:
-        print(
-            f"WARNING: not enough group-level data "
-            f"for pattern {pattern}"
-        )
-        return None
-
-    # --------------------------------------------------------
-    # Calculate SD across subjects
-    # --------------------------------------------------------
-
-    df_subject_pattern = df_subject[
-        df_subject["pattern_pair"] == pattern
-    ].copy()
-
-    df_sd = (
-        df_subject_pattern
-        .groupby("duration")["angle_deg"]
-        .agg(
-            mean="mean",
-            sd="std",
-        )
-        .reset_index()
-    )
-
-    df_group = df_group.merge(
-        df_sd[["duration", "sd"]],
-        on="duration",
-        how="left",
-    )
-
-    # --------------------------------------------------------
-    # Regression on group means
-    # --------------------------------------------------------
-
-    result = fit_linear_regression(
-        x=df_group["duration"],
-        y=df_group["angle_deg"],
-    )
-
-    # --------------------------------------------------------
-    # Plot
-    # --------------------------------------------------------
+    x = df[settings["x"]]
+    y = df[settings["y"]]
 
     fig, ax = plt.subplots(figsize=(8, 6))
 
+    # --------------------------------------------------------
     # Group mean ± SD
+    # --------------------------------------------------------
+
+    yerr = df["sd"] if "sd" in df.columns else None
+
     ax.errorbar(
-        df_group["duration"],
-        df_group["angle_deg"],
-        yerr=df_group["sd"],
+        x,
+        y,
+        yerr=yerr,
         fmt="o",
         markersize=8,
         capsize=5,
@@ -286,51 +232,25 @@ def plot_group_angle_vs_duration(
     # Regression line
     # --------------------------------------------------------
 
-    x_line = np.linspace(
-        df_group["duration"].min(),
-        df_group["duration"].max(),
-        200,
-    )
+    result = results.get(pattern)
 
-    y_line = result["slope"] * x_line
-
-    ax.plot(
-        x_line,
-        y_line,
-        linewidth=2,
-        label=(
-            f"Fit: y = {result['slope']:.2f}x\n"
-            f"R²₀ = {result['r_squared']:.2f}"
-        ),
-        zorder=2,
-    )
+    if result is not None:
+        _plot_regression_line(
+            ax=ax,
+            result=result,
+            x_min=x.min(),
+            x_max=x.max(),
+        )
 
     # --------------------------------------------------------
     # Formatting
     # --------------------------------------------------------
 
-    ax.axhline(
-        0,
-        linewidth=1,
-        linestyle="--",
-        alpha=0.5,
-    )
-
-    ax.set_xlabel("Duration (s)")
-    ax.set_ylabel("Angle (°)")
-
-    ax.set_xticks(protocol["blocks"]["durations"])
-
-    ax.set_title(
-        f"Group – {pattern}\n"
-        "Angle vs Duration"
-    )
-
-    ax.grid(False)
-
-    ax.legend(
-        fontsize=9,
-        loc="best",
+    _format_regression_plot(
+        ax=ax,
+        analysis_name=analysis_name,
+        protocol=protocol,
+        title=f"Group – {pattern}\n{analysis_name.replace('_', ' ').title()}",
     )
 
     # --------------------------------------------------------
@@ -339,6 +259,7 @@ def plot_group_angle_vs_duration(
 
     save_folder = (
         Path(output_folder)
+        / analysis_name
         / pattern
     )
 
@@ -347,94 +268,436 @@ def plot_group_angle_vs_duration(
         exist_ok=True,
     )
 
-    save_path = (
-        save_folder
-        / "angle_vs_duration.png"
-    )
+    save_path = save_folder / f"{analysis_name}.png"
 
     fig.tight_layout()
-    fig.savefig(
-        save_path,
-        dpi=200,
-    )
+    fig.savefig(save_path, dpi=200)
     plt.close(fig)
 
-    return result
+    return save_path
 
 
 # ============================================================
-# RUN ALL REGRESSION PLOTS
+# SUBJECT-LEVEL PLOT
 # ============================================================
 
-def run_angle_vs_duration_plots(
-    df,
-    patterns,
-    protocol
+def plot_subject_regression(
+    plot_data,
+    results,
+    subject,
+    pattern,
+    analysis_name,
+    protocol,
+    output_folder=cfg.REGRESSIONS_RESULTS_PATH / "subject_level",
 ):
     """
-    Generate angle-vs-duration regression plots.
+    Plot one subject-level regression.
 
-    Group-level plots are controlled by:
-        cfg.INCLUDE_GROUP_LEVEL_REGRESSION_PLOTS
+    Parameters
+    ----------
+    plot_data : pandas.DataFrame
+        Subject-level means already prepared by the regression analysis.
 
-    Subject-level plots are controlled by:
-        cfg.INCLUDE_SUBJECT_LEVEL_REGRESSION_PLOTS
+    results : dict
+        Subject-level regression results.
 
-    Returns:
-        Dictionary containing regression results.
+    subject : str
+        Subject identifier.
+
+    pattern : str
+        Stimulation pattern.
+
+    analysis_name : str
+        Regression analysis to plot.
+
+    protocol : dict
+        Experiment protocol.
+
+    output_folder : Path
+        Output directory.
+
+    Returns
+    -------
+    Path
+        Path of the saved figure.
     """
 
-    results = {
-        "group_level": {},
-        "subject_level": {},
-    }
+    settings = _get_analysis_settings(analysis_name)
+
+    df = plot_data[
+        (plot_data["subject"] == subject)
+        & (plot_data["pattern_pair"] == pattern)
+    ].copy()
+
+    if df.empty:
+        print(
+            f"WARNING: no data for subject {subject}, "
+            f"pattern {pattern}, analysis {analysis_name}"
+        )
+        return None
+
+    df = df.sort_values(settings["x"])
+
+    x = df[settings["x"]]
+    y = df[settings["y"]]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
 
     # --------------------------------------------------------
-    # Group-level
+    # Subject means
     # --------------------------------------------------------
 
-    if cfg.INCLUDE_GROUP_LEVEL_REGRESSION_PLOTS:
-
-        for pattern in patterns:
-
-            result = plot_group_angle_vs_duration(
-                df=df,
-                pattern=pattern,
-                protocol=protocol
-            )
-
-            results["group_level"][pattern] = result
+    ax.scatter(
+        x,
+        y,
+        s=70,
+        zorder=3,
+        label="Subject mean",
+    )
 
     # --------------------------------------------------------
-    # Subject-level
+    # Regression line
     # --------------------------------------------------------
 
-    if cfg.INCLUDE_SUBJECT_LEVEL_REGRESSION_PLOTS:
+    result = results.get(pattern)
 
-        df_subject = aggregate_subject_means(df)
-
-        subjects = sorted(
-            df_subject["subject"].unique()
+    if result is not None:
+        _plot_regression_line(
+            ax=ax,
+            result=result,
+            x_min=x.min(),
+            x_max=x.max(),
         )
 
-        for subject in subjects:
+    # --------------------------------------------------------
+    # Formatting
+    # --------------------------------------------------------
+
+    _format_regression_plot(
+        ax=ax,
+        analysis_name=analysis_name,
+        protocol=protocol,
+        title=(
+            f"{subject} – {pattern}\n"
+            f"{analysis_name.replace('_', ' ').title()}"
+        ),
+    )
+
+    # --------------------------------------------------------
+    # Save
+    # --------------------------------------------------------
+
+    save_folder = (
+        Path(output_folder)
+        / analysis_name
+        / subject
+        / pattern
+    )
+
+    save_folder.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    save_path = save_folder / f"{analysis_name}.png"
+
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=200)
+    plt.close(fig)
+
+    return save_path
+
+
+# ============================================================
+# TRIAL-LEVEL PLOT
+# ============================================================
+
+def plot_trial_regression(
+    plot_data,
+    results,
+    pattern,
+    analysis_name,
+    protocol,
+    output_folder=cfg.REGRESSIONS_RESULTS_PATH / "trial_level",
+):
+    """
+    Plot a trial-level regression.
+
+    Unlike group- and subject-level plots, trial-level plots show
+    the individual experimental trials together with the fitted
+    through-origin regression line.
+
+    This is particularly useful for visualizing the pure-pattern
+    regressions used to estimate Kb and Kt.
+    """
+
+    settings = _get_analysis_settings(analysis_name)
+
+    df = plot_data[
+        plot_data["pattern_pair"] == pattern
+    ].copy()
+
+    if df.empty:
+        print(
+            f"WARNING: no trial-level data for "
+            f"pattern {pattern}, analysis {analysis_name}"
+        )
+        return None
+
+    df = df.sort_values(settings["x"])
+
+    x = df[settings["x"]]
+    y = df[settings["y"]]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    # --------------------------------------------------------
+    # Individual trials
+    # --------------------------------------------------------
+
+    ax.scatter(
+        x,
+        y,
+        s=35,
+        alpha=0.6,
+        label="Individual trials",
+        color = "#b4b4b4",
+        zorder=3,
+    )
+
+    # --------------------------------------------------------
+    # Mean across trials
+    # --------------------------------------------------------
+
+    mean_data = (
+        df.groupby(settings["x"], as_index=False)[settings["y"]]
+        .mean()
+    )
+
+    ax.scatter(
+        mean_data[settings["x"]],
+        mean_data[settings["y"]],
+        s=80,
+        label="Trial mean",
+        zorder=5,
+    )
+
+    # --------------------------------------------------------
+    # Regression line
+    # --------------------------------------------------------
+
+    result = results.get(pattern)
+
+    if result is not None:
+        _plot_regression_line(
+            ax=ax,
+            result=result,
+            x_min=x.min(),
+            x_max=x.max(),
+        )
+
+    # --------------------------------------------------------
+    # Formatting
+    # --------------------------------------------------------
+
+    _format_regression_plot(
+        ax=ax,
+        analysis_name=analysis_name,
+        protocol=protocol,
+        title=(
+            f"Trial level – {pattern}\n"
+            f"{analysis_name.replace('_', ' ').title()}"
+        ),
+    )
+
+    # --------------------------------------------------------
+    # Save
+    # --------------------------------------------------------
+
+    save_folder = (
+        Path(output_folder)
+        / analysis_name
+        / pattern
+    )
+
+    save_folder.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    save_path = save_folder / f"{analysis_name}.png"
+
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=200)
+    plt.close(fig)
+
+    return save_path
+
+# ============================================================
+# RUN REGRESSION PLOTS
+# ============================================================
+
+def run_regression_plots(
+    plot_data,
+    results,
+    protocol,
+    group_level=True,
+    subject_level=True,
+    trial_level=True,
+    analyses=None,
+):
+    """
+    Generate the requested regression plots.
+
+    Parameters
+    ----------
+    plot_data : dict
+        Data prepared by ``run_regression_analysis``.
+
+    results : dict
+        Regression results prepared by ``run_regression_analysis``.
+
+    protocol : dict
+        Experiment protocol.
+
+    group_level : bool, default=True
+        Whether to generate group-level plots.
+
+    subject_level : bool, default=True
+        Whether to generate subject-level plots.
+
+    trial_level : bool, default=True
+        Whether to generate trial-level plots.
+
+    analyses : list of str or None
+        Analyses to plot. If None, all available analyses are plotted.
+
+    Returns
+    -------
+    dict
+        Paths of the generated plots.
+    """
+
+    if analyses is None:
+        analyses = [
+            "angle_vs_duration",
+            "vividness_vs_duration",
+            "angle_vs_vividness",
+        ]
+
+    plot_paths = {
+        "group_level": {},
+        "subject_level": {},
+        "trial_level": {},
+    }
+
+    # ========================================================
+    # GROUP LEVEL
+    # ========================================================
+
+    if group_level and plot_data.get("group_level"):
+
+        group_data = plot_data["group_level"]["group_means"]
+        group_results = results["group_level"]
+
+        patterns = _get_pattern_to_process()
+
+        for analysis_name in analyses:
+
+            if analysis_name not in group_results:
+                continue
+
+            plot_paths["group_level"][analysis_name] = {}
 
             for pattern in patterns:
 
-                result = plot_subject_angle_vs_duration(
-                    df_subject=df_subject,
-                    subject=subject,
+                path = plot_group_regression(
+                    plot_data=group_data,
+                    results=group_results[analysis_name],
                     pattern=pattern,
-                    protocol=protocol
+                    analysis_name=analysis_name,
+                    protocol=protocol,
                 )
 
-                results["subject_level"].setdefault(
-                    pattern,
-                    {},
+                plot_paths["group_level"][
+                    analysis_name
+                ][pattern] = path
+
+    # ========================================================
+    # SUBJECT LEVEL
+    # ========================================================
+
+    if subject_level and plot_data.get("subject_level"):
+
+        subject_data = plot_data["subject_level"]["subject_means"]
+        subject_results = results["subject_level"]
+
+        subjects = sorted(
+            subject_data["subject"].unique()
+        )
+
+        patterns = _get_pattern_to_process()
+
+        for analysis_name in analyses:
+
+            if analysis_name not in subject_results:
+                continue
+
+            plot_paths["subject_level"][analysis_name] = {}
+
+            for subject in subjects:
+
+                for pattern in patterns:
+
+                    subject_result = _get_subject_result(
+                        subject_results[analysis_name][pattern],
+                        subject,
+                    )
+
+                    path = plot_subject_regression(
+                        plot_data=subject_data,
+                        results={pattern: subject_result},
+                        subject=subject,
+                        pattern=pattern,
+                        analysis_name=analysis_name,
+                        protocol=protocol,
+                    )
+
+                    plot_paths["subject_level"][
+                        analysis_name
+                    ].setdefault(subject, {})[pattern] = path
+
+    # ========================================================
+    # TRIAL LEVEL
+    # ========================================================
+
+    if trial_level and plot_data.get("trial_level"):
+
+        trial_data = plot_data["trial_level"]["trial_data"]
+        trial_results = results["trial_level"]
+
+        for analysis_name in analyses:
+
+            if analysis_name not in trial_results:
+                continue
+
+            plot_paths["trial_level"][analysis_name] = {}
+
+
+            patterns = _get_pattern_to_process()
+
+            for pattern in patterns:
+
+                path = plot_trial_regression(
+                    plot_data=trial_data,
+                    results=trial_results[analysis_name],
+                    pattern=pattern,
+                    analysis_name=analysis_name,
+                    protocol=protocol,
                 )
 
-                results["subject_level"][
-                    pattern
-                ][subject] = result
+                plot_paths["trial_level"][
+                    analysis_name
+                ][pattern] = path
 
-    return results
+    return plot_paths

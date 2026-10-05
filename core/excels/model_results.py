@@ -111,7 +111,7 @@ def build_parameters_table(
 # VALIDATION TABLE
 # ============================================================
 
-def build_validation_table(subj_df, Kb, Kt, patterns, durations):
+def build_validation_table(subj_df, Kb, Kt, patterns, durations, max_vividness=None):
     """
     Build the validation table used by downstream analyses.
 
@@ -153,7 +153,7 @@ def build_validation_table(subj_df, Kb, Kt, patterns, durations):
 
                 real = np.average(
                     subset["angle_deg"],
-                    weights=get_weights(subset["vividness"].values)
+                    weights=get_weights(subset["vividness"].values, max_vividness=max_vividness)
                 )
 
             else:
@@ -182,7 +182,8 @@ def build_group_validation_table(
     df,
     global_parameters,
     patterns,
-    durations
+    durations,
+    max_vividness=None
 ):
     """
     Build the group-level validation table.
@@ -212,6 +213,9 @@ def build_group_validation_table(
 
     durations : list
         Stimulation durations to include.
+
+    max_vividness : float, optional
+        Maximum vividness value to use for normalization.
 
     Returns
     -------
@@ -266,7 +270,7 @@ def build_group_validation_table(
                 real = np.average(
                     subset["angle_deg"],
                     weights=get_weights(
-                        subset["vividness"].values
+                        subset["vividness"].values, max_vividness=max_vividness
                     )
                 )
 
@@ -375,7 +379,8 @@ def save_results(
     df,
     subjects,
     protocol,
-    output_path
+    output_path,
+    max_vividness=None
 ):
     """
     Build and save all model-analysis results.
@@ -433,7 +438,7 @@ def save_results(
     )
 
     # ========================================================
-    # PATTERNS AND DURATIONS
+    # PATTERNS, DURATIONS 
     # ========================================================
 
     patterns = sorted(
@@ -473,7 +478,8 @@ def save_results(
                 Kb=subject_parameters[subject]["Kb"],
                 Kt=subject_parameters[subject]["Kt"],
                 patterns=patterns,
-                durations=durations
+                durations=durations,
+                max_vividness=max_vividness
             )
         )
 
@@ -485,7 +491,8 @@ def save_results(
         df=df,
         global_parameters=global_parameters,
         patterns=patterns,
-        durations=durations
+        durations=durations,
+        max_vividness=max_vividness
     )
 
     # ========================================================
