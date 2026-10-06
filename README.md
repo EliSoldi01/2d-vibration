@@ -11,7 +11,7 @@ Starting from the raw trial data, the pipeline computes the elbow-centered angul
 1. **Load** the protocol (`protocol.json`) and the data workbook (sheets `Trials` and `Subjects`).
 2. **Validate** the protocol, the trial data and the subject data.
 3. **Create** the results folders.
-4. **Prepare data**: build the pattern pair (`BBB_TTT`), merge subject information, add the expected kinesthetic illusion, compute `angle_deg` and add the presentation order. The result is saved as `data_processed.xlsx`.
+4. **Prepare data**: build the pattern pair (BBB_TTT), merge subject information, add protocol metadata, add the expected kinesthetic illusion, compute angle_deg and add the presentation order. The result is saved as `data_processed.xlsx`.
 5. **Select subjects** (all subjects, or the ones listed in `SUBJECTS_TO_PROCESS`).
 6. **Heatmaps** (`DO_HEATMAPS`): per-subject and group heatmaps, with an optional quadratic interpolation between the flexion and extension patterns.
 7. **Model parameters** (`DO_EXTRACT_MODEL_PARAMETERS`): estimate `Kb` and `Kt` for each subject and globally, evaluate the model and build the validation tables.
@@ -72,6 +72,10 @@ Data and results are located relative to the **working directory**, so run the p
 
 | Column | Description |
 | --- | --- |
+| `experiment_id` | Experiment identifier |
+| `protocol_id` | Protocol identifier |
+| `arm` | Left or Right |
+| `initial_angle` | Initial arm angle |
 | `subject` | Subject identifier |
 | `duration` | Stimulation duration |
 | `rep` | Repetition number |
@@ -127,7 +131,7 @@ All options are in `config.py`.
 python main.py
 ```
 
-The model-fitting step reads `model_parameters/group_validation.xlsx`, so run the model-parameters step (`DO_EXTRACT_MODEL_PARAMETERS = True`) before enabling `DO_MODEL_FITTING`.
+The model-fitting step requires the previously generated `model_parameters/group_validation.xlsx`. If this file does not exist, run the model-parameters step (`DO_EXTRACT_MODEL_PARAMETERS = True`) first.
 
 ## Outputs
 
@@ -158,7 +162,7 @@ angle = Kb * pb * D + Kt * pt * D
 
 where `pb` and `pt` are the number of active biceps and triceps stimulations in the pattern and `D` is the stimulation duration.
 
-`Kb` and `Kt` are the slopes of weighted linear regressions through the origin of angle on duration, computed on the pure patterns (`PURE_PATTERNS`). They are estimated for each subject and globally. Performance is reported as R² referenced to zero (`R2_zero`), MAE and RMSE, on all patterns and on complex patterns only (all patterns except the pure ones).
+`Kb` and `Kt` are estimated using linear regressions through the origin on the pure patterns, with sample weights given by `vividness / max_vividness` when `USE_VIVIDNESS_WEIGHTS` is enabled. They are estimated for each subject and globally. Performance is reported as R² referenced to zero (`R2_zero`), MAE and RMSE, on all patterns and on complex patterns only (all patterns except the pure ones).
 
 ### Model fitting
 
@@ -172,7 +176,7 @@ The best model is selected by AIC. Parameter standard errors, 95% confidence int
 
 ### Leave-one-subject-out cross-validation
 
-For each subject, `Kb` and `Kt` are estimated on all the other subjects and used to predict the held-out subject. The results include per-subject metrics, their mean and standard deviation, and pooled metrics across all held-out trials.
+For each subject, `Kb` and `Kt` are estimated from the pure-pattern trials of all other subjects and used to predict the held-out subject. The results include per-subject metrics, their mean and standard deviation, and pooled metrics across all held-out trials.
 
 ## License
 
