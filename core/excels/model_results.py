@@ -11,7 +11,7 @@ def build_parameters_table(
     subject_parameters,
     global_parameters,
     global_metrics_all,
-    global_metrics_combined
+    global_metrics_complex
 ):
     """
     Build the Parameters table for Excel output.
@@ -27,8 +27,8 @@ def build_parameters_table(
     global_metrics_all : dict
         Global model performance across all patterns.
 
-    global_metrics_combined : dict
-        Global model performance across combined patterns only.
+    global_metrics_complex : dict
+        Global model performance across complex patterns only.
 
     Returns
     -------
@@ -62,14 +62,14 @@ def build_parameters_table(
             "RMSE (full model - ALL) [°]":
                 params["RMSE_full_all"],
 
-            "R²_zero (full model - COMBINED)":
-                params["R2_combined"],
+            "R²_zero (full model - COMPLEX)":
+                params["R2_complex"],
 
-            "MAE (full model - COMBINED) [°]":
-                params["MAE_combined"],
+            "MAE (full model - COMPLEX) [°]":
+                params["MAE_complex"],
 
-            "RMSE (full model - COMBINED) [°]":
-                params["RMSE_combined"]
+            "RMSE (full model - COMPLEX) [°]":
+                params["RMSE_complex"]
         })
 
     # --------------------------------------------------------
@@ -94,14 +94,14 @@ def build_parameters_table(
         "RMSE (full model - ALL) [°]":
             global_metrics_all["RMSE"],
 
-        "R²_zero (full model - COMBINED)":
-            global_metrics_combined["R2_zero"],
+        "R²_zero (full model - COMPLEX)":
+            global_metrics_complex["R2_zero"],
 
-        "MAE (full model - COMBINED) [°]":
-            global_metrics_combined["MAE"],
+        "MAE (full model - COMPLEX) [°]":
+            global_metrics_complex["MAE"],
 
-        "RMSE (full model - COMBINED) [°]":
-            global_metrics_combined["RMSE"]
+        "RMSE (full model - COMPLEX) [°]":
+            global_metrics_complex["RMSE"]
     })
 
     df = pd.DataFrame(rows).set_index("subject")
@@ -323,9 +323,9 @@ def build_group_validation_table(
 
 def build_model_performance_table(
     df_all,
-    df_combined,
+    df_complex,
     metrics_all,
-    metrics_combined
+    metrics_complex
 ):
     """
     Build the Model Performance table for Excel output.
@@ -335,14 +335,14 @@ def build_model_performance_table(
     df_all : pandas.DataFrame
         Trial-level data including all stimulation patterns.
 
-    df_combined : pandas.DataFrame
-        Trial-level data including combined stimulation patterns only.
+    df_complex : pandas.DataFrame
+        Trial-level data including complex stimulation patterns only.
 
     metrics_all : dict
         Model performance metrics for all patterns.
 
-    metrics_combined : dict
-        Model performance metrics for combined patterns only.
+    metrics_complex : dict
+        Model performance metrics for complex patterns only.
 
     Returns
     -------
@@ -359,11 +359,11 @@ def build_model_performance_table(
             "RMSE [°]": metrics_all["RMSE"]
         },
         {
-            "Dataset": "COMBINED patterns only",
-            "N_trials": len(df_combined),
-            "R²_zero": metrics_combined["R2_zero"],
-            "MAE [°]": metrics_combined["MAE"],
-            "RMSE [°]": metrics_combined["RMSE"]
+            "Dataset": "COMPLEX patterns only",
+            "N_trials": len(df_complex),
+            "R²_zero": metrics_complex["R2_zero"],
+            "MAE [°]": metrics_complex["MAE"],
+            "RMSE [°]": metrics_complex["RMSE"]
         }
     ]
 
@@ -429,12 +429,12 @@ def save_results(
         analysis_results["global_metrics_all"]
     )
 
-    global_metrics_combined = (
-        analysis_results["global_metrics_combined"]
+    global_metrics_complex = (
+        analysis_results["global_metrics_complex"]
     )
 
-    df_combined = (
-        analysis_results["df_combined"]
+    df_complex = (
+        analysis_results["df_complex"]
     )
 
     # ========================================================
@@ -457,7 +457,7 @@ def save_results(
         subject_parameters=subject_parameters,
         global_parameters=global_parameters,
         global_metrics_all=global_metrics_all,
-        global_metrics_combined=global_metrics_combined
+        global_metrics_complex=global_metrics_complex
     )
 
     # ========================================================
@@ -501,9 +501,9 @@ def save_results(
 
     model_performance = build_model_performance_table(
         df_all=df,
-        df_combined=df_combined,
+        df_complex=df_complex,
         metrics_all=global_metrics_all,
-        metrics_combined=global_metrics_combined
+        metrics_complex=global_metrics_complex
     )
 
     # ========================================================

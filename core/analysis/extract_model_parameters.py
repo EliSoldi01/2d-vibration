@@ -419,11 +419,11 @@ def run_model_analysis(df, subjects, max_vividness=None):
         global_metrics_all
             Global model performance on all patterns.
 
-        global_metrics_combined
-            Global model performance on combined patterns only.
+        global_metrics_complex
+            Global model performance on complex patterns only.
 
-        df_combined
-            Trial-level data containing combined patterns only.
+        df_complex
+            Trial-level data containing complex patterns only.
     """
     
     # ========================================================
@@ -454,14 +454,14 @@ def run_model_analysis(df, subjects, max_vividness=None):
             max_vividness=max_vividness
         )
 
-        combined_df_subject = subj_df[
+        complex_df_subject = subj_df[
             ~subj_df["pattern_pair"].isin(
                 cfg.PURE_PATTERNS.keys()
             )
         ].copy()
 
-        metrics_combined_subject = compute_model_metrics(
-            raw_df=combined_df_subject,
+        metrics_complex_subject = compute_model_metrics(
+            raw_df=complex_df_subject,
             Kb=params["Kb"],
             Kt=params["Kt"],
             max_vividness=max_vividness
@@ -483,16 +483,16 @@ def run_model_analysis(df, subjects, max_vividness=None):
             metrics_all_subject["RMSE"]
         )
 
-        params["R2_combined"] = (
-            metrics_combined_subject["R2_zero"]
+        params["R2_complex"] = (
+            metrics_complex_subject["R2_zero"]
         )
 
-        params["MAE_combined"] = (
-            metrics_combined_subject["MAE"]
+        params["MAE_complex"] = (
+            metrics_complex_subject["MAE"]
         )
 
-        params["RMSE_combined"] = (
-            metrics_combined_subject["RMSE"]
+        params["RMSE_complex"] = (
+            metrics_complex_subject["RMSE"]
         )
 
         subject_parameters[subject] = params
@@ -520,14 +520,14 @@ def run_model_analysis(df, subjects, max_vividness=None):
         max_vividness=max_vividness
     )
 
-    df_combined = df[
+    df_complex = df[
         ~df["pattern_pair"].isin(
             cfg.PURE_PATTERNS.keys()
         )
     ].copy()
 
-    global_metrics_combined = compute_model_metrics(
-        raw_df=df_combined,
+    global_metrics_complex = compute_model_metrics(
+        raw_df=df_complex,
         Kb=Kb_global,
         Kt=Kt_global,
         max_vividness=max_vividness
@@ -541,6 +541,6 @@ def run_model_analysis(df, subjects, max_vividness=None):
         "subject_parameters": subject_parameters,
         "global_parameters": global_parameters,
         "global_metrics_all": global_metrics_all,
-        "global_metrics_combined": global_metrics_combined,
-        "df_combined": df_combined
+        "global_metrics_complex": global_metrics_complex,
+        "df_complex": df_complex
     }

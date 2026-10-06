@@ -13,12 +13,38 @@ from core.analysis.metrics import (
 # ============================================================
 # UTIL 
 # ============================================================
-def prepare_data_for_model_fitting(validation_data_path): 
+def prepare_data_for_model_fitting(group_validation_df_path): 
+    """
+    Prepare validation data and model parameters for model fitting.
+
+    Parameters
+    ----------
+    group_validation_df_path : Path or str
+        Path to the Excel file containing the group validation results.
+        The file must contain a "Validation" sheet with the experimental
+        data and a "Parameters" sheet with the model parameters.
+
+    Returns
+    -------
+    x : numpy.ndarray
+        Ideal angles used as independent variable for model fitting.
+    y : numpy.ndarray
+        Real mean angles used as dependent variable for model fitting.
+    df_model_fitting : pandas.DataFrame
+        DataFrame containing only rows with finite ideal and real mean angles.
+    Kb : float
+        Global biceps model parameter.
+    Kt : float
+        Global triceps model parameter.
+
+    Raises
+    ------
+    ValueError
+        If no valid data are available for model fitting.
     """
     
-    """
     df_validation = pd.read_excel(
-        validation_data_path,
+        group_validation_df_path,
         sheet_name="Validation"
     )
     
@@ -49,7 +75,15 @@ def prepare_data_for_model_fitting(validation_data_path):
         "real_mean"
     ].to_numpy()
 
-    return x, y, df_model_fitting
+    df_parameters = pd.read_excel(
+        group_validation_df_path,
+        sheet_name="Parameters"
+    )
+
+    Kb = df_parameters["Kb"].iloc[-1]
+    Kt = df_parameters["Kt"].iloc[-1]
+
+    return x, y, df_model_fitting, Kb, Kt
 
 # ============================================================
 # MODELS

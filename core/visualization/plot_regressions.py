@@ -140,6 +140,8 @@ def _format_regression_plot(ax, analysis_name, protocol, title):
     ax.set_xlabel(settings["xlabel"])
     ax.set_ylabel(settings["ylabel"])
 
+    ax.set_ylim(-20, 20)
+
     if settings["x"] == "duration":
         ax.set_xticks(protocol["blocks"]["durations"])
 
@@ -449,6 +451,9 @@ def plot_trial_regression(
     x = df[settings["x"]]
     y = df[settings["y"]]
 
+    max_y = max(y)
+    min_y = min(y)
+
     fig, ax = plt.subplots(figsize=(8, 6))
 
     # --------------------------------------------------------
@@ -509,6 +514,8 @@ def plot_trial_regression(
             f"{analysis_name.replace('_', ' ').title()}"
         ),
     )
+
+    ax.set_ylim(min_y - 1, max_y + 1)
 
     # --------------------------------------------------------
     # Save
