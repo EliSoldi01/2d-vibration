@@ -2,7 +2,22 @@
 import pandas as pd
 
 def _create_per_subject_dataframe(results):
-    """Create a DataFrame containing LOSO metrics for each subject."""
+    """
+    Create a DataFrame containing LOSO metrics for each subject.
+
+    Parameters
+    ----------
+    results : dict
+        LOSO cross-validation results, as returned by
+        run_leave_one_subject_out_cross_validation.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per subject, with Kb, Kt and R2_zero, MAE and RMSE
+        for all patterns and for complex patterns only.
+    """
+
 
     all_results = results["all_patterns"]["subjects_results"]
     complex_results = results["complex_patterns"]["subjects_results"]
@@ -26,7 +41,22 @@ def _create_per_subject_dataframe(results):
     return pd.DataFrame(rows)
 
 def _create_summary_dataframe(results):
-    """Create a DataFrame containing descriptive statistics of LOSO metrics."""
+    """
+    Create a DataFrame containing descriptive statistics of LOSO metrics.
+
+    Parameters
+    ----------
+    results : dict
+        LOSO cross-validation results, as returned by
+        run_leave_one_subject_out_cross_validation.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per dataset × metric, with columns "dataset", "metric",
+        "mean" and "sd". The datasets are "model_parameters" (Kb, Kt),
+        "all_patterns" and "complex_patterns" (MAE, RMSE).
+    """
 
     rows = []
 
@@ -57,10 +87,23 @@ def _create_summary_dataframe(results):
     return pd.DataFrame(rows)
 
 def _create_pooled_dataframe(results):
-    """Create a DataFrame containing pooled LOSO performance metrics."""
+    """
+    Create a DataFrame containing pooled LOSO performance metrics.
 
+    Parameters
+    ----------
+    results : dict
+        LOSO cross-validation results, as returned by
+        run_leave_one_subject_out_cross_validation.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per dataset ("all_patterns", "complex_patterns"), with
+        the pooled R2_zero, MAE and RMSE.
+    """
     rows = []
-
+    
     for dataset_name in ["all_patterns", "complex_patterns"]:
 
         pooled = results[dataset_name]["pooled"]
@@ -75,7 +118,31 @@ def _create_pooled_dataframe(results):
     return pd.DataFrame(rows)
 
 def save_loso_results(results, output_path):
-    """Save LOSO cross-validation results to an Excel workbook."""
+    """
+    Save LOSO cross-validation results to an Excel workbook.
+
+    The workbook contains three sheets:
+
+        LOSO_per_subject
+            Metrics for each held-out subject.
+        Summary
+            Mean and standard deviation of parameters and metrics.
+        Pooled
+            Performance pooled across all held-out trials.
+
+    Parameters
+    ----------
+    results : dict
+        LOSO cross-validation results, as returned by
+        run_leave_one_subject_out_cross_validation.
+
+    output_path : str or Path
+        Path of the Excel file to create.
+
+    Returns
+    -------
+    None
+    """
 
     per_subject_df = _create_per_subject_dataframe(results)
     summary_df = _create_summary_dataframe(results)

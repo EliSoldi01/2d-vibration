@@ -1,3 +1,5 @@
+# core/analysis/saturation.py
+
 import numpy as np
 
 import config as cfg
@@ -20,7 +22,23 @@ def _normalize_thresholds(threshold):
 
     [0.85, 0.90, 0.95]
         -> [0.85, 0.90, 0.95]
+
+    Parameters
+    ----------
+    threshold : float or iterable of float
+        Single saturation threshold or sequence of thresholds.
+
+    Returns
+    -------
+    list of float
+        List of thresholds.
+
+    Raises
+    ------
+    ValueError
+        If any threshold is not strictly between 0 and 1.
     """
+
 
     if np.isscalar(threshold):
         thresholds = [float(threshold)]
@@ -66,7 +84,9 @@ def get_saturation_info(
 
     Logistic4:
         Saturation is defined relative to the range
-        between L_min and L_max.
+        between L_min and L_max. Both a lower point
+        (at 1 - threshold) and an upper point (at threshold)
+        are returned; the upper point is the main saturation point.
 
         y_sat = L_min +
                 threshold * (L_max - L_min)
@@ -74,10 +94,35 @@ def get_saturation_info(
         x_sat = D0 +
                 log(threshold / (1-threshold)) / k
 
+    Parameters
+    ----------
+    results : dict
+        Model fitting results, as returned by fit_models.
+
+    best_model_name : str, optional
+        Name of the model to use. If None, the model with the
+        lowest AIC is selected.
+
+    threshold : float, optional
+        Saturation threshold, strictly between 0 and 1.
+        Defaults to cfg.SATURATION_THRESHOLD.
+
     Returns
     -------
     dict
-        Saturation information for one threshold.
+        Saturation information for one threshold. Always contains
+        "model", "has_saturation" and "threshold"; for tanh and
+        logistic4 it also contains the saturation coordinates
+        ("x_sat", "y_sat", plus "x_sat_low", "x_sat_high",
+        "y_sat_low", "y_sat_high" for logistic4) and the fitted
+        model parameters.
+
+    Raises
+    ------
+    ValueError
+        If threshold is not a single value between 0 and 1, if the
+        model is not found in results or is not valid, or if the
+        model name is unknown.
     """
 
     if not np.isscalar(threshold):
@@ -230,10 +275,24 @@ def get_saturation_infos(
 
         [0.85, 0.90, 0.95]
 
+    Parameters
+    ----------
+    results : dict
+        Model fitting results, as returned by fit_models.
+
+    best_model_name : str, optional
+        Name of the model to use. If None, the model with the
+        lowest AIC is selected.
+
+    threshold : float or iterable of float, optional
+        Single saturation threshold or sequence of thresholds.
+        Defaults to cfg.SATURATION_THRESHOLD.
+
     Returns
     -------
     list of dict
-        One saturation dictionary for each threshold.
+        One saturation dictionary for each threshold
+        (see get_saturation_info).
     """
 
     thresholds = _normalize_thresholds(threshold)
@@ -268,7 +327,27 @@ def calculate_saturation_point(
     For logistic4, returns the upper saturation point.
 
     This function expects a single threshold.
+
+    Parameters
+    ----------
+    results : dict
+        Model fitting results, as returned by fit_models.
+
+    threshold : float, optional
+        Saturation threshold, strictly between 0 and 1.
+        Defaults to cfg.SATURATION_THRESHOLD.
+
+    Returns
+    -------
+    x_sat : float or None
+        Saturation point on the x axis, or None if the selected
+        model has no saturation (linear).
+
+    y_sat : float or None
+        Saturation point on the y axis, or None if the selected
+        model has no saturation (linear).
     """
+
 
     info = get_saturation_info(
         results,
@@ -295,19 +374,31 @@ def calculate_equivalent_stimulation_duration(
     pattern,
 ):
     """
-    Convert an angle into the equivalent stimulation duration:
+    Calculate equivalent stimulation durations corresponding
+    to saturation.
 
-        angle = Kb * pb * D
-              + Kt * pt * D
+    `threshold` can be either a single value or a sequence.
 
-    therefore:
+    For Tanh:
+        - biceps uses the positive saturation angle
+        - triceps uses the negative saturation angle
 
-        D = angle / (Kb * pb + Kt * pt)
+    For Logistic4:
+        - biceps uses the upper saturation point
+        - triceps uses the lower saturation point
+
+    The returned duration information distinguishes between:
+
+        ideal duration:
+            duration corresponding to x_sat
+
+        real duration:
+            duration corresponding to y_sat
 
     Parameters
     ----------
-    saturation_angle : float
-        Angle in degrees.
+    results : dict
+        Model fitting results, as returned by fit_models.
 
     Kb : float
         Biceps coefficient.
@@ -315,13 +406,17 @@ def calculate_equivalent_stimulation_duration(
     Kt : float
         Triceps coefficient.
 
-    pattern : str
-        Pattern code in the format 'BBB_TTT'.
+    threshold : float or iterable of float, optional
+        Single saturation threshold or sequence of thresholds.
+        Defaults to cfg.SATURATION_THRESHOLD.
 
     Returns
     -------
-    float
-        Equivalent stimulation duration.
+    dict or list of dict
+        A dictionary for a single threshold, or a list of
+        dictionaries for multiple thresholds. If the selected
+        model has no saturation (linear), the dictionary contains
+        only "model", "has_saturation" and "threshold".
     """
 
     if not isinstance(pattern, str):

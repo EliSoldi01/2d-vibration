@@ -16,7 +16,29 @@ from core.analysis.metrics import compute_r2_metrics
 # ===================================================
 
 def _compute_loso_summary(subjects_results):
-    """Compute mean and standard deviation of LOSO performance metrics across subjects."""
+    """
+    Compute mean and standard deviation of LOSO performance metrics across subjects.
+
+    Parameters
+    ----------
+    subjects_results : list of dict
+        Per-subject LOSO results. Each dictionary must contain the keys
+        "MAE" and "RMSE".
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        included_metrics
+            List of the summarized metrics ("MAE", "RMSE").
+        Mean_MAE
+        Std_MAE
+        Mean_RMSE
+        Std_RMSE
+
+        All values are rounded to two decimals.
+    """
 
     mae_values = [result["MAE"] for result in subjects_results]
     rmse_values = [result["RMSE"] for result in subjects_results]
@@ -31,7 +53,31 @@ def _compute_loso_summary(subjects_results):
 
 
 def _compute_parameter_summary(kb_values, kt_values):
-    """Compute mean and standard deviation of LOSO model parameters."""
+    """
+    Compute mean and standard deviation of LOSO model parameters.
+
+    Parameters
+    ----------
+    kb_values : list of float
+        Biceps parameter Kb estimated in each LOSO training fold.
+
+    kt_values : list of float
+        Triceps parameter Kt estimated in each LOSO training fold.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        included_metrics
+            List of the summarized parameters ("Kb", "Kt").
+        Mean_Kb
+        Std_Kb
+        Mean_Kt
+        Std_Kt
+
+        All values are rounded to two decimals.
+    """
 
     return {
         "included_metrics": ["Kb", "Kt"],
@@ -43,7 +89,26 @@ def _compute_parameter_summary(kb_values, kt_values):
 
 
 def _compute_pooled_metrics(y_true, y_pred, weights):
-    """Compute pooled LOSO performance metrics across all held-out trials."""
+    """
+    Compute pooled LOSO performance metrics across all held-out trials.
+
+    Parameters
+    ----------
+    y_true : array-like
+        Observed angles of all held-out trials.
+
+    y_pred : array-like
+        Predicted angles of all held-out trials.
+
+    weights : array-like
+        Sample weights of all held-out trials.
+
+    Returns
+    -------
+    dict
+        Dictionary containing "R2_zero", "MAE" and "RMSE",
+        rounded to two decimals.
+    """
 
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
@@ -83,7 +148,46 @@ def _compute_pooled_metrics(y_true, y_pred, weights):
 # ============================================================
 
 def run_leave_one_subject_out_cross_validation(df, protocol):
-    """Run leave-one-subject-out cross-validation for all and complex patterns."""
+    """
+    Run leave-one-subject-out cross-validation for all and complex patterns.
+
+    For each subject, the global parameters Kb and Kt are estimated on the
+    remaining subjects and then used to predict the held-out subject's trials.
+    Performance is evaluated on all patterns and on complex patterns only
+    (i.e. excluding the pure patterns in cfg.PURE_PATTERNS).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Processed trial-level data for all subjects. Must contain the
+        columns "subject", "pattern_pair", "duration", "angle_deg" and
+        "vividness".
+
+    protocol : dict
+        Experimental protocol. The vividness scale values are read from
+        protocol["scales"]["vividness"]["values"] to compute max_vividness
+        when cfg.USE_VIVIDNESS_WEIGHTS is True.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        model_parameters
+            summary
+                Mean and standard deviation of Kb and Kt across folds.
+
+        all_patterns
+            subjects_results
+                Per-subject Kb, Kt, R2_zero, MAE and RMSE.
+            summary
+                Mean and standard deviation of MAE and RMSE across subjects.
+            pooled
+                R2_zero, MAE and RMSE pooled across all held-out trials.
+
+        complex_patterns
+            Same structure as all_patterns, restricted to complex patterns.
+    """
 
     results = {
         "model_parameters": {

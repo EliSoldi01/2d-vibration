@@ -63,7 +63,23 @@ def _get_analysis_settings(analysis_name):
 def _get_subject_result(subject_results, subject):
     """
     Return the regression result for a specific subject.
+
+    Parameters
+    ----------
+    subject_results : list of dict
+        Subject-level regression results. Each dictionary must contain
+        the key "subject".
+
+    subject : str
+        Subject identifier.
+
+    Returns
+    -------
+    dict or None
+        Regression result of the subject, or None if the subject
+        is not found.
     """
+
 
     for result in subject_results:
         if result["subject"] == subject:
@@ -75,7 +91,13 @@ def _get_pattern_to_process():
     """
     Return the list of patterns to process.
 
-    If cfg.PATTERNS_TO_PROCESS is None, return all patterns.
+    If cfg.PATTERNS_TO_PROCESS is None, return all patterns
+    found in the regression results.
+
+    Returns
+    -------
+    list of str
+        Patterns to process.
     """
 
     if cfg.PATTERNS_TO_PROCESS is not None:
@@ -100,6 +122,28 @@ def _get_pattern_to_process():
 def _plot_regression_line(ax, result, x_min, x_max):
     """
     Plot a through-origin regression line from a fitted result.
+
+    The line y = slope * x is drawn between x_min and x_max, with the
+    slope and R²_zero in the legend label. Nothing is drawn if the
+    result is None or the slope is not finite.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes where the line is drawn.
+
+    result : dict or None
+        Regression result containing the keys "slope" and "r_squared".
+
+    x_min : float
+        Left end of the line.
+
+    x_max : float
+        Right end of the line.
+
+    Returns
+    -------
+    None
     """
 
     if result is None:
@@ -126,6 +170,31 @@ def _plot_regression_line(ax, result, x_min, x_max):
 def _format_regression_plot(ax, analysis_name, protocol, title):
     """
     Apply common formatting to a regression plot.
+
+    Adds a dashed reference line at y = 0, the axis labels of the
+    analysis, fixed y limits (-20, 20), the title and the legend. For
+    analyses with duration on the x axis, the x ticks are set to the
+    protocol durations.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes to format.
+
+    analysis_name : str
+        Name of the regression analysis, used to retrieve the
+        axis labels.
+
+    protocol : dict
+        Experiment protocol. The durations are read from
+        protocol["blocks"]["durations"].
+
+    title : str
+        Title of the plot.
+
+    Returns
+    -------
+    None
     """
 
     settings = _get_analysis_settings(analysis_name)
@@ -431,6 +500,39 @@ def plot_trial_regression(
 
     This is particularly useful for visualizing the pure-pattern
     regressions used to estimate Kb and Kt.
+
+    The figure shows the individual trials (grey), the mean across
+    trials for each x value and the regression line. The y limits are
+    set to the range of the data, plus a margin of 1.
+
+    Parameters
+    ----------
+    plot_data : pandas.DataFrame
+        Trial-level data. Must contain the column "pattern_pair" and
+        the x and y columns of the analysis.
+
+    results : dict
+        Regression results of the analysis, mapping each pattern to its
+        regression result.
+
+    pattern : str
+        Stimulation pattern.
+
+    analysis_name : str
+        Regression analysis to plot.
+
+    protocol : dict
+        Experiment protocol.
+
+    output_folder : Path, optional
+        Output directory. Defaults to
+        cfg.REGRESSIONS_RESULTS_PATH / "trial_level".
+
+    Returns
+    -------
+    Path or None
+        Path of the saved figure, or None if no data are available for
+        the pattern.
     """
 
     settings = _get_analysis_settings(analysis_name)

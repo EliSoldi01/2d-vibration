@@ -1,3 +1,5 @@
+# core/data_io/load_data.py
+
 import json
 import pandas as pd
 from pathlib import Path
@@ -5,10 +7,22 @@ from pathlib import Path
 def load_file(path):
     """
     Load data from a JSON or Excel file.
-    Args:
-        path (str): Path to the data file.
-    Returns:
-        dict or pd.DataFrame: Loaded data.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the data file (.json, .xlsx or .xls).
+
+    Returns
+    -------
+    dict or pandas.DataFrame
+        Parsed JSON content for .json files, or the first sheet of the
+        workbook for Excel files.
+
+    Raises
+    ------
+    ValueError
+        If the file extension is not .json, .xlsx or .xls.
     """
     path = Path(path)
     
@@ -25,10 +39,16 @@ def load_file(path):
 def load_protocol(path="protocol.json"):
     """
     Load protocol configuration from a JSON file.
-    Args: 
-        path (str): Path to the protocol JSON file.
-    Returns:
-        dict: Protocol configuration.
+
+    Parameters
+    ----------
+    path : str or Path, optional
+        Path to the protocol JSON file. Defaults to "protocol.json".
+
+    Returns
+    -------
+    dict
+        Protocol configuration.
     """
     with open(path, "r") as f:
         protocol = json.load(f)
@@ -36,11 +56,21 @@ def load_protocol(path="protocol.json"):
 
 def load_data_file(path, sheet_name=None):
     """
-    Load main experimental data from an xlsx file.
-    Args:
-        path (str): Path to the xlsx file.
-    Returns:
-        pd.DataFrame: Loaded data.
+    Load main experimental data from an Excel file.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the Excel file.
+
+    sheet_name : str or int, optional
+        Name or index of the sheet to load. If None, the first sheet
+        is loaded.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Loaded data.
     """
     if sheet_name is not None:
         return pd.read_excel(path,sheet_name=sheet_name)

@@ -23,6 +23,25 @@ def build_analysis_dataframes(results):
     """
     Convert regression results into one DataFrame per
     analysis level and analysis type.
+
+    Levels or analyses with no results are skipped. At the subject level
+    each row corresponds to a subject × pattern combination; at the
+    other levels each row corresponds to a pattern.
+
+    Parameters
+    ----------
+    results : dict
+        Regression results, organized by level ("group_level",
+        "subject_level", "trial_level") and then by analysis name,
+        as returned in run_regression_analysis()["results"].
+
+    Returns
+    -------
+    dict
+        Dictionary mapping "<level>_<analysis_name>" (e.g.
+        "group_level_angle_vs_duration") to a pandas.DataFrame with
+        the columns "pattern", "n", "slope", "r_squared", "mae" and
+        "rmse" (plus "subject" at the subject level).
     """
 
     dataframes = {}
@@ -86,7 +105,24 @@ def save_regression_results(results, output_path):
     Save regression results to an Excel workbook.
 
     A separate worksheet is created for each combination
-    of analysis level and regression analysis.
+    of analysis level and regression analysis. Column widths are
+    adjusted to the content, and a summary of the saved file is
+    printed to the console.
+
+    Parameters
+    ----------
+    results : dict
+        Regression results, as returned in
+        run_regression_analysis()["results"].
+
+    output_path : str or Path
+        Path of the Excel file to create. Missing parent directories
+        are created.
+
+    Returns
+    -------
+    None
+        Nothing is saved if there are no results.
     """
 
     output_path = Path(output_path)
@@ -109,14 +145,14 @@ def save_regression_results(results, output_path):
 
         for key, df in dataframes.items():
 
-            level, analysis_name = key.split("_", 1)
+            level, analysis_name = key.split("_level_", 1)
 
             analysis_sheet = SHEET_NAMES.get(
                 analysis_name,
                 analysis_name,
             )
 
-            sheet_name = f"{level[:3]}_{analysis_sheet}"
+            sheet_name = f"{level}_{analysis_sheet}"
 
             df.to_excel(
                 writer,

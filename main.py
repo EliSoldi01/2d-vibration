@@ -1,3 +1,5 @@
+# main.py
+
 import config as cfg
 from core.utils import plot_config, paths
 from core.data_io import load_data, validate_data
@@ -18,13 +20,9 @@ def main():
     # ========================================================
 
     print("\n-> Loading data...")
-
     protocol = load_data.load_protocol(cfg.PROTOCOL_PATH)
-
     df_main = load_data.load_data_file(cfg.DATA_PATH,"Trials")
-
     df_subjects = load_data.load_data_file(cfg.DATA_PATH,"Subjects")
-
     print("Data loaded.")
 
     # ========================================================
@@ -32,7 +30,6 @@ def main():
     # ========================================================
 
     print("\n-> Validating data...")
-
     if not validate_data.validate_protocol(protocol):
         raise ValueError("Protocol JSON is not valid.")
 
@@ -41,18 +38,16 @@ def main():
 
     if not validate_data.validate_subjects_data(df_subjects):
         raise ValueError("Subjects data is not valid.")
-
+    
     print("Data validated successfully.")
 
     # ========================================================
     # CREATE RESULTS FOLDERS
     # ========================================================
     print("\n-> Creating results folder...")
-
     for results_path in cfg.ALL_PATHS:
         if results_path:
             paths.create_directory(results_path)
-
     print("All results folders created successfully.")
 
     # ========================================================
@@ -60,9 +55,7 @@ def main():
     # ========================================================
 
     print("\n-> Preparing data...")
-
     df = prepare_data(df_main=df_main,df_subject=df_subjects,protocol=protocol,output_path=cfg.DATA_PROCESSED_PATH)
-
     print(f"  Data prepared successfully and saved to: {cfg.DATA_PROCESSED_PATH}")
 
     # ========================================================

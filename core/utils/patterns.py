@@ -21,9 +21,22 @@ def pattern_sums(pattern):
     return pb_sum, pt_sum
 
 
-def is_combined_pattern(pattern, pure_patterns):
+def is_complex_pattern(pattern, pure_patterns):
     """
     Return True if the pattern is not one of the pure stimulation patterns.
+
+    Parameters
+    ----------
+    pattern : str
+        Pattern encoded as 'BBB_TTT'.
+
+    pure_patterns : iterable of str
+        Pure stimulation patterns (e.g. the keys of cfg.PURE_PATTERNS).
+
+    Returns
+    -------
+    bool
+        True if the pattern is combined, False if it is pure.
     """
 
     return pattern not in pure_patterns

@@ -115,19 +115,46 @@ def build_validation_table(subj_df, Kb, Kt, patterns, durations, max_vividness=N
     """
     Build the validation table used by downstream analyses.
 
-    ```
     For each pattern × duration combination, calculate:
 
         ideal_angle
         real_angle
         abs_error
 
-    The real angle uses the weighting scheme defined by cfg.USE_VIVIDNESS_WEIGHTS.
+    The real angle is the weighted mean of the observed angles, using the
+    weighting scheme defined by cfg.USE_VIVIDNESS_WEIGHTS. If no trials
+    are available for a combination, real_angle and abs_error are NaN.
 
     Important
     ---------
     This table is separate from the raw trial-level model
     performance metrics.
+
+    Parameters
+    ----------
+    subj_df : pandas.DataFrame
+        Trial-level data for a single subject.
+
+    Kb : float
+        Biceps model parameter.
+
+    Kt : float
+        Triceps model parameter.
+
+    patterns : list
+        Pattern identifiers to include.
+
+    durations : list
+        Stimulation durations to include.
+
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per pattern × duration, with columns "pattern",
+        "duration", "ideal_angle", "real_angle" and "abs_error".
     """
 
     rows = []
@@ -385,6 +412,13 @@ def save_results(
     """
     Build and save all model-analysis results.
 
+    Two kinds of Excel files are written to output_path:
+
+        group_validation.xlsx
+            Sheets "Parameters", "Validation" and "Model_Performance".
+        <subject>_validation.xlsx
+            One validation table for each subject.
+
     Parameters
     ----------
     analysis_results : dict
@@ -397,15 +431,29 @@ def save_results(
         Subjects included in the analysis.
 
     protocol : dict
-        Loaded experiment protocol.
+        Loaded experiment protocol. The stimulation durations are read
+        from protocol["blocks"]["durations"].
 
     output_path : pathlib.Path
-        Directory where the result files will be saved.
+        Directory where the result files will be saved. It is created
+        if it does not exist.
+
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
 
     Returns
     -------
     dict
-        Dictionary containing all generated result tables.
+        Dictionary containing all generated result tables:
+
+        parameters
+            Subject-level and global parameters and metrics.
+        subject_validation
+            Dictionary mapping each subject to its validation table.
+        group_validation
+            Group-level validation table.
+        model_performance
+            Model performance on all and complex patterns.
     """
 
     output_path.mkdir(

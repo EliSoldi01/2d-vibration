@@ -1,14 +1,7 @@
+# core/data_io/validate_data.py
+
 import re
 import pandas as pd
-
-### TODO:
-# - Modifica validazione aggiungendo anche i nuovi campi: experiment_id, protocol_id, arm, initial_angle
-
-
-HEX_COLOR_REGEX = r"^#(?:[0-9a-fA-F]{3}){1,2}$"
-
-import re
-
 
 HEX_COLOR_REGEX = r"^#(?:[0-9a-fA-F]{3}){1,2}$"
 
@@ -17,8 +10,21 @@ def validate_protocol(protocol):
     """
     Validate the protocol configuration.
 
-    Returns:
-        bool: True if valid, False otherwise.
+    Checks that all required fields are present (metadata, blocks,
+    patterns, grid, scales), that each pattern definition is complete,
+    that its biceps and triceps sequences are lists of length
+    patterns["sequence_length"], and that its color is a valid hex code.
+    Errors are printed to the console.
+
+    Parameters
+    ----------
+    protocol : dict
+        Protocol configuration, as returned by load_protocol.
+
+    Returns
+    -------
+    bool
+        True if the protocol is valid, False otherwise.
     """
 
     errors = []
@@ -159,8 +165,33 @@ def validate_main_data(df, protocol):
     """
     Validate experimental data against the protocol.
 
-    Returns:
-        bool: True if valid, False otherwise.
+    Checks that all required columns are present and that the x and y
+    coordinates fall within the grid size defined in the protocol.
+    Errors are printed to the console.
+
+    Required columns:
+        subject
+        duration
+        rep
+        x
+        y
+        pattern_biceps
+        pattern_triceps
+        vividness
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Trial-level experimental data.
+
+    protocol : dict
+        Protocol configuration. The grid size is read from
+        protocol["grid"]["x"] and protocol["grid"]["y"].
+
+    Returns
+    -------
+    bool
+        True if the data are valid, False otherwise.
     """
 
     required_cols = [
@@ -226,14 +257,27 @@ def validate_subjects_data(df):
     """
     Validate the Subjects worksheet.
 
+    Checks that all required columns are present, that subject IDs are
+    present and unique, that the measurement columns are numeric and that
+    block_order has no missing values. Errors are printed to the console.
+
     Required columns:
         subject
         forearm_cm
         forearm_angle_deg
         upper_cm
         block_order
-    """
 
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Content of the Subjects worksheet.
+
+    Returns
+    -------
+    bool
+        True if the worksheet is valid, False otherwise.
+    """
     required_columns = {
         "subject",
         "forearm_cm",

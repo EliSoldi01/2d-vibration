@@ -12,8 +12,33 @@ def plot_comparison(
     """
     Plot all fitted models together with the experimental data.
 
-    The legend reports R², AIC, and ΔAIC for each model.
-    Experimental data points are shown in black.
+    Experimental data points are shown in black. The legend reports
+    R² (referenced to zero), AIC and ΔAIC for each model, with ΔAIC
+    computed relative to the lowest finite AIC. Models whose fit failed
+    are skipped.
+
+    If output_folder is provided, the figure is saved as
+    "model_comparison.png" in that folder.
+
+    Parameters
+    ----------
+    x : array-like
+        Ideal angles (independent variable).
+
+    y : array-like
+        Real mean angles (dependent variable).
+
+    results : dict
+        Results returned by model_fitting.fit_models().
+
+    output_folder : str or Path, optional
+        Folder where the figure is saved. Created if it does not exist.
+        If None, the figure is not saved. Defaults to
+        cfg.MODEL_FITTING_PATH.
+
+    Returns
+    -------
+    None
     """
 
     from pathlib import Path
@@ -231,6 +256,11 @@ def plot_best_model(
     Plot experimental group means (± SD) together with
     the AIC-selected best-fitting model.
 
+    Rows with duration 0 are excluded. Each point is colored by pattern
+    and its marker depends on the duration. Optionally, the confidence
+    band of the model and the saturation points are added. Both axes
+    have the same limits and an equal aspect ratio.
+
     Parameters
     ----------
     df : pandas.DataFrame
@@ -241,29 +271,50 @@ def plot_best_model(
             pattern
             duration
 
-    protocol_path : str, optional
+    protocol_path : str or Path, optional
         Path to protocol.json. Used to retrieve pattern
-        colors, legend order, and duration markers.
+        colors, legend order, and duration markers. If None, fallback
+        colors and markers are used.
 
-    output_folder : str, optional
-        Folder where the figure is saved.
+    output_folder : str or Path, optional
+        Folder where the figure is saved. Created if it does not exist.
+        If None, the figure is not saved. Defaults to
+        cfg.MODEL_FITTING_PATH.
 
     results : dict
-        Results returned by fit_models().
+        Results returned by fit_models(). Required.
 
     selected_patterns : list, optional
-        Patterns to include in the plot.
+        Patterns to include in the plot. If None, all patterns are used.
 
     plot_confidence_band : bool, optional
         If True, plot the confidence band around
         the best-fitting model. Default is False.
 
+    plot_saturation_points : bool, optional
+        If True, mark the saturation points of the best model
+        (threshold cfg.SATURATION_THRESHOLD). Default is False.
+
     confidence : float, optional
         Confidence level of the model confidence band.
         Default is 0.95.
 
-    output_name : str
-        Name of the output figure.
+    output_name : str, optional
+        Name of the output figure. Defaults to "best_model.png".
+
+    forced_best_model : str, optional
+        Name of the model to plot ("linear", "tanh" or "logistic4").
+        If None, the model with the lowest AIC is used.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If results is None, if no data are left after filtering,
+        or if the model name is unknown.
     """
 
     import json
@@ -687,7 +738,7 @@ def plot_best_model(
         linewidth=2.5,
         label=(
             f"{best_name} "
-            f"R²={best_model['r2_mean']:.3f}"
+            f"R²={best_model['r2_zero']:.3f}"
         ),
         zorder=6,
     )
@@ -708,7 +759,23 @@ def plot_best_model(
     )
 
     def sort_key(label):
+        """
+        Return the sorting key of a legend label.
 
+        Pattern labels are ordered by their legend position in the protocol;
+        the best-model entry, the saturation entry and the confidence
+        interval entry are placed at the end, in this order.
+
+        Parameters
+        ----------
+        label : str
+            Legend label.
+
+        Returns
+        -------
+        int
+            Sorting key (lower values come first).
+        """
         if label.startswith(
             best_name
         ):

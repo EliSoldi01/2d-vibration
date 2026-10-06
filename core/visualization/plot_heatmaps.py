@@ -100,6 +100,21 @@ def get_metric_scale(protocol, metric):
 def get_start_position(protocol):
     """
     Return the starting position in cm.
+
+    The start cell is read from the protocol and converted to the
+    physical coordinates of the cell center.
+
+    Parameters
+    ----------
+    protocol : dict
+        Loaded protocol dictionary. The start cell and cell size are read
+        from protocol["grid"]["start_cell"] and
+        protocol["grid"]["cell_size_cm"].
+
+    Returns
+    -------
+    tuple of float
+        Starting position (x_cm, y_cm).
     """
     x_cell, y_cell = protocol["grid"]["start_cell"]
     cell_size_cm = protocol["grid"]["cell_size_cm"]
@@ -172,7 +187,43 @@ def draw_circles(
 
     Data coordinates are stored in grid-cell units,
     but plotting coordinates are converted to cm.
+
+    The radius of each circle is proportional to the metric:
+
+        radius = 0.5 * (metric / scale_max) * cell_size_cm
+
+    Rows whose pattern is not in pattern_colors are skipped. The start
+    position is marked with a red cross.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes where the circles are drawn.
+
+    df : pandas.DataFrame
+        Data containing the columns "x", "y", "pattern_pair" and the
+        selected metric.
+
+    metric : str
+        Name of the column represented by circle size.
+
+    pattern_colors : dict
+        Mapping pattern_pair -> color.
+
+    scale_max : float
+        Maximum metric value, used to scale the radius.
+
+    start_pos : tuple of float
+        Starting position (x_cm, y_cm).
+
+    cell_size_cm : float
+        Side length of a grid cell, in cm.
+
+    Returns
+    -------
+    None
     """
+
 
     for _, row in df.iterrows():
 
@@ -222,6 +273,24 @@ def setup_axis(
 
     Matplotlib coordinates are expressed in cm,
     while tick labels represent grid-cell coordinates.
+
+    The ticks are placed at the cell centers, the y axis is inverted
+    (y increases downward), the aspect ratio is equal and light grey
+    lines mark the cell boundaries.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes to configure.
+
+    protocol : dict
+        Loaded protocol dictionary. The grid size and cell size are read
+        from protocol["grid"]["x"], protocol["grid"]["y"] and
+        protocol["grid"]["cell_size_cm"].
+
+    Returns
+    -------
+    None
     """
 
     n_x = protocol["grid"]["x"]
@@ -333,7 +402,31 @@ def draw_pattern_legend(
     """
     Draw a global pattern legend.
 
-    The layout adapts to the number of patterns.
+    The layout adapts to the number of patterns:
+
+        11 patterns : three rows (4, 3 and 4 entries)
+        up to 4     : a single row
+        otherwise   : two rows of roughly equal length
+
+    Nothing is drawn if there are no patterns.
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        Figure where the legend is drawn.
+
+    pattern_colors : dict
+        Mapping pattern_pair -> color.
+
+    ordered_patterns : list
+        Pattern pairs, in the order in which they are shown.
+
+    fontsize : int, optional
+        Font size of the legend. Defaults to 13.
+
+    Returns
+    -------
+    None
     """
     patches = {
         pattern: mpatches.Patch(
@@ -403,6 +496,25 @@ def draw_extra_legend(
     """
     Draw legend entries for the start position
     and quadratic interpolation.
+
+    The quadratic interpolation entry is shown only if
+    plot_quadratic_interpolation is True.
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        Figure where the legend is drawn.
+
+    fontsize : int, optional
+        Font size of the legend. Defaults to 13.
+
+    plot_quadratic_interpolation : bool, optional
+        Whether to include the quadratic interpolation entry.
+        Defaults to True.
+
+    Returns
+    -------
+    None
     """
 
     handle_start_position = Line2D(
@@ -447,7 +559,52 @@ def fit_quadratic_parametric_curve(
     """
     Fit a parametric quadratic curve through three points.
 
-    The three points are expressed in cm.
+    The three points are expressed in cm. The curve is parameterized by
+    t in [0, 1]; the parameter value of the center point is proportional
+    to its distance from the flexion point along the polyline
+    flexion -> center -> extension. The x(t) and y(t) quadratics are
+    obtained by solving the exact interpolation system.
+
+    Parameters
+    ----------
+    flexion_mean : array-like
+        Mean flexion position (x_cm, y_cm), corresponding to t = 0.
+
+    center : array-like
+        Center position (x_cm, y_cm) the curve passes through.
+
+    extension_mean : array-like
+        Mean extension position (x_cm, y_cm), corresponding to t = 1.
+
+    n_points : int, optional
+        Number of points used to sample the curve. Must be at least 3.
+        Defaults to 500.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        x
+            x coordinates of the sampled curve.
+        y
+            y coordinates of the sampled curve.
+        length
+            Arc length of the curve, in cm.
+        coefficients_x
+            Coefficients (a, b, c) of x(t) = a*t² + b*t + c.
+        coefficients_y
+            Coefficients (a, b, c) of y(t) = a*t² + b*t + c.
+        flexion_mean
+        center
+        extension_mean
+            The three input points.
+
+    Raises
+    ------
+    ValueError
+        If n_points is smaller than 3 or if the three points
+        are coincident.
     """
 
     point_0 = np.asarray(
@@ -579,6 +736,44 @@ def get_pattern_means(
 
     The dataframe coordinates are in grid-cell units.
     The returned coordinates are converted to cm.
+
+    Parameters
+    ----------
+    df_mean : pandas.DataFrame
+        Data containing the pattern, x and y columns.
+
+    flexion_pattern : str
+        Pattern pair used as flexion reference.
+
+    extension_pattern : str
+        Pattern pair used as extension reference.
+
+    pattern_column : str, optional
+        Name of the column containing the pattern pairs.
+        Defaults to "pattern_pair".
+
+    x_column : str, optional
+        Name of the column containing the x coordinates. Defaults to "x".
+
+    y_column : str, optional
+        Name of the column containing the y coordinates. Defaults to "y".
+
+    cell_size_cm : float, optional
+        Side length of a grid cell, in cm. Defaults to 4.
+
+    Returns
+    -------
+    flexion_mean : tuple of float
+        Mean flexion position (x_cm, y_cm).
+
+    extension_mean : tuple of float
+        Mean extension position (x_cm, y_cm).
+
+    Raises
+    ------
+    ValueError
+        If the dataframe does not contain both the flexion and the
+        extension pattern.
     """
 
     flexion = df_mean[
@@ -635,6 +830,51 @@ def plot_quadratic_parametric_curve(
 ):
     """
     Fit and plot the quadratic trajectory in cm.
+
+    The curve passes through the mean flexion position, the center and
+    the mean extension position. A text box with the curve length and
+    the equations of x(t) and y(t) is added to the axes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes where the curve is drawn.
+
+    df_mean : pandas.DataFrame
+        Data containing the pattern, x and y columns (in grid-cell units).
+
+    center_cm : array-like
+        Center position (x_cm, y_cm) the curve passes through.
+
+    cell_size_cm : float
+        Side length of a grid cell, in cm.
+
+    flexion_pattern : str
+        Pattern pair used as flexion reference.
+
+    extension_pattern : str
+        Pattern pair used as extension reference.
+
+    pattern_column : str, optional
+        Name of the column containing the pattern pairs.
+        Defaults to "pattern_pair".
+
+    x_column : str, optional
+        Name of the column containing the x coordinates. Defaults to "x".
+
+    y_column : str, optional
+        Name of the column containing the y coordinates. Defaults to "y".
+
+    color : str, optional
+        Color of the curve. Defaults to "black".
+
+    linewidth : float, optional
+        Line width of the curve. Defaults to 2.0.
+
+    Returns
+    -------
+    dict
+        Result of fit_quadratic_parametric_curve.
     """
 
     flexion_mean, extension_mean = get_pattern_means(
@@ -812,6 +1052,10 @@ def plot_heatmaps_by_duration(
     """
     Plot multiple duration heatmaps horizontally.
 
+    One panel is drawn for each duration, using the mean position and
+    mean metric of each pattern × repetition. Optionally, the quadratic
+    interpolation between flexion and extension is added to each panel.
+
     Parameters
     ----------
     df : pandas.DataFrame
@@ -823,14 +1067,31 @@ def plot_heatmaps_by_duration(
     filename : str
         Output path.
 
+    flexion_pattern : str
+        Pattern pair used as flexion reference for the interpolation.
+
+    extension_pattern : str
+        Pattern pair used as extension reference for the interpolation.
+
     durations : iterable, optional
         Durations to plot.
 
         If None, all durations defined by the protocol
         and present in the dataframe are plotted.
 
-    metric : str
-        Metric represented by circle size.
+    metric : str, optional
+        Metric represented by circle size. Defaults to "vividness".
+
+    plot_quadratic_interpolation : bool, optional
+        Whether to draw the quadratic interpolation. Defaults to True.
+
+    show_plot : bool, optional
+        Whether to display the figure after saving it. Defaults to False.
+
+    Returns
+    -------
+    None
+        Nothing is saved if no valid duration is available.
     """
     durations = get_durations(
         protocol,
@@ -990,6 +1251,29 @@ def plot_reps(
 ):
     """
     Plot separate heatmaps for each repetition.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Data containing the column "rep" and the columns required by
+        draw_circles.
+
+    subject_id : str
+        Subject identifier, used in the figure title.
+
+    filename : str
+        Output path.
+
+    protocol : dict
+        Loaded protocol dictionary.
+
+    metric : str, optional
+        Metric represented by circle size. Defaults to "vividness".
+
+    Returns
+    -------
+    None
+        Nothing is saved if no repetitions are found.
     """
     reps = sorted(
         df["rep"].dropna().unique()
@@ -1103,6 +1387,42 @@ def combine_images(
 ):
     """
     Combine previously generated duration images.
+
+    The images are read from
+    <subject_folder>/duration_<d>s/<subject_id>_<mode>_<d>s.png.
+    Missing files are skipped with a warning.
+
+    Parameters
+    ----------
+    subject_folder : str
+        Folder of the subject.
+
+    subject_id : str
+        Subject identifier.
+
+    durations : iterable
+        Durations whose images are combined.
+
+    mode : str, optional
+        Type of image to combine ("reps" or "global"). Defaults to "reps".
+
+    layout : str, optional
+        Arrangement of the images, "horizontal" or "vertical".
+        Defaults to "horizontal".
+
+    output_name : str, optional
+        Name of the output file, saved in subject_folder. If None,
+        "<subject_id>_<mode>_ALL_durations.png" is used.
+
+    Returns
+    -------
+    None
+        Nothing is saved if no image is found.
+
+    Raises
+    ------
+    ValueError
+        If layout is not "horizontal" or "vertical".
     """
     images = []
 
@@ -1217,7 +1537,42 @@ def save_subject_heatmaps(
 ):
     """
     Save heatmaps for a single subject.
+
+    For each duration, a global heatmap and a per-repetition figure are
+    saved in <output_folder>/<subject>/duration_<d>s. The per-duration
+    images are then combined into one figure for the repetitions
+    (vertical layout) and one for the global heatmaps (horizontal layout).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Experimental data containing the column "subject".
+
+    subject : str
+        Subject identifier.
+
+    protocol : dict
+        Loaded protocol dictionary.
+
+    output_folder : str, optional
+        Root output folder. Defaults to "Results_".
+
+    metric : str, optional
+        Metric represented by circle size. Defaults to "vividness".
+
+    recalc_subject : bool, optional
+        If False, subjects whose folder already exists are skipped.
+        Defaults to True.
+
+    durations : iterable, optional
+        Durations to plot. If None, all durations defined by the
+        protocol and present for the subject are used.
+
+    Returns
+    -------
+    None
     """
+
     subject_folder = os.path.join(
         output_folder,
         subject
@@ -1325,6 +1680,43 @@ def save_all_subjects_heatmaps(
 ):
     """
     Save average heatmaps across all subjects.
+
+    Files are saved in <output_folder>/ALL_SUBJECTS. For each duration,
+    a global heatmap and a per-repetition figure are saved, followed by
+    a horizontal multi-duration figure named
+    "<experiment_id>_<protocol_id>.png".
+
+    Note that the first (shortest) duration is excluded from the
+    plots (durations[1:]).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Experimental data.
+
+    protocol : dict
+        Loaded protocol dictionary.
+
+    output_folder : str, optional
+        Root output folder. Defaults to "Results_".
+
+    metric : str, optional
+        Metric represented by circle size. Defaults to "vividness".
+
+    durations : iterable, optional
+        Durations to plot. If None, all durations defined by the
+        protocol and present in the dataframe are used.
+
+    plot_quadratic_interpolation : bool, optional
+        Whether to draw the quadratic interpolation in the
+        multi-duration figure. Defaults to True.
+
+    show_plot : bool, optional
+        Whether to display the multi-duration figure. Defaults to False.
+
+    Returns
+    -------
+    None
     """
     all_folder = os.path.join(
         output_folder,

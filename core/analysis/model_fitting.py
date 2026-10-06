@@ -1,3 +1,5 @@
+# core/analysis/model_fitting.py
+
 import numpy as np
 import pandas as pd
 
@@ -47,7 +49,7 @@ def prepare_data_for_model_fitting(group_validation_df_path):
         group_validation_df_path,
         sheet_name="Validation"
     )
-    
+
     # ----------------------------------------------------
     # Select valid data
     # ----------------------------------------------------
@@ -94,6 +96,19 @@ def linear_model(x, slope):
     Linear model constrained to pass through the origin.
 
     y = slope * x
+
+    Parameters
+    ----------
+    x : array-like
+        Independent variable.
+
+    slope : float
+        Slope of the line.
+
+    Returns
+    -------
+    array-like
+        Model values at x.
     """
     return slope * x
 
@@ -103,7 +118,24 @@ def tanh_sigmoid(x, L, k):
     Hyperbolic tangent sigmoid.
 
     y = L * tanh(k * x)
+
+    Parameters
+    ----------
+    x : array-like
+        Independent variable.
+
+    L : float
+        Upper asymptote (the curve saturates at +L and -L).
+
+    k : float
+        Steepness of the curve.
+
+    Returns
+    -------
+    array-like
+        Model values at x.
     """
+
     return L * np.tanh(k * x)
 
 
@@ -113,6 +145,29 @@ def logistic_sigmoid(x, L_min, L_max, k, D0):
 
     y = L_min + (L_max - L_min) /
         (1 + exp(-k * (x - D0)))
+
+    Parameters
+    ----------
+    x : array-like
+        Independent variable.
+
+    L_min : float
+        Lower asymptote.
+
+    L_max : float
+        Upper asymptote.
+
+    k : float
+        Steepness of the curve.
+
+    D0 : float
+        Midpoint of the curve (value of x at which y is halfway
+        between L_min and L_max).
+
+    Returns
+    -------
+    array-like
+        Model values at x.
     """
     return (
         L_min

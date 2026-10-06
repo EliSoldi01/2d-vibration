@@ -1,5 +1,6 @@
+# core/analysis/extract_model_parameters.py
+
 import numpy as np
-import pandas as pd
 from sklearn.linear_model import LinearRegression
 
 import config as cfg
@@ -16,6 +17,29 @@ def get_weights(vividness, n=None, max_vividness=None):
 
     If USE_VIVIDNESS_WEIGHTS is True, weights are vividness / max_vividness.
     Otherwise, all samples receive equal weight.
+
+    Parameters
+    ----------
+    vividness : array-like or None
+        Trial vividness scores. If None, equal weights are returned.
+
+    n : int, optional
+        Number of samples. Required when vividness is None.
+
+    max_vividness : float, optional
+        Value used to normalize vividness scores. Required when
+        cfg.USE_VIVIDNESS_WEIGHTS is True.
+
+    Returns
+    -------
+    np.ndarray
+        Array of sample weights.
+
+    Raises
+    ------
+    ValueError
+        If vividness is None and n is not provided, or if
+        cfg.USE_VIVIDNESS_WEIGHTS is True and max_vividness is not provided.
     """
 
     if vividness is None:
@@ -50,6 +74,9 @@ def compute_regression_slope(x, y, vividness, max_vividness=None):
 
     vividness : array-like
         Trial vividness scores.
+    
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
 
     Returns
     -------
@@ -135,12 +162,33 @@ def _predict_raw(raw_df, Kb, Kt, max_vividness=None):
     """
     Compute model predictions for raw trial-level data.
 
-    ```
+    Parameters
+    ----------
+    raw_df : pandas.DataFrame
+        Trial-level data containing the columns "angle_deg",
+        "pattern_pair", "duration" and "vividness".
+
+    Kb : float
+        Biceps model parameter.
+
+    Kt : float
+        Triceps model parameter.
+
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
+
     Returns
     -------
     y_true : np.ndarray
+        Observed angles.
+
     y_pred : np.ndarray
+        Predicted angles.
+
     weights : np.ndarray
+        Sample weights.
+
+        If raw_df is empty, three empty arrays are returned.
     """
 
     if raw_df.empty:
@@ -178,8 +226,17 @@ def extract_subject_parameters(subj_df, max_vividness=None):
     """
     Estimate Kb and Kt for one subject.
 
-    ```
-    Pure patterns are taken from cfg.PURE_PATTERNS.
+    Pure patterns are taken from cfg.PURE_PATTERNS. For each pure pattern,
+    a weighted regression through the origin of angle on duration is fitted.
+    If a pattern has no trials, its parameter and R² are set to NaN.
+
+    Parameters
+    ----------
+    subj_df : pandas.DataFrame
+        Trial-level data for a single subject.
+
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
 
     Returns
     -------
@@ -227,7 +284,6 @@ def compute_model_metrics(raw_df, Kb, Kt, max_vividness=None):
     """
     Evaluate an already-defined model on raw trial data.
 
-    ```
     Metrics
     -------
     R²_zero
@@ -240,8 +296,27 @@ def compute_model_metrics(raw_df, Kb, Kt, max_vividness=None):
     ---------
     This function does not estimate Kb or Kt.
     It only evaluates the supplied parameters.
-    """
 
+    Parameters
+    ----------
+    raw_df : pandas.DataFrame
+        Trial-level data to evaluate.
+
+    Kb : float
+        Biceps model parameter.
+
+    Kt : float
+        Triceps model parameter.
+
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
+
+    Returns
+    -------
+    dict
+        Dictionary containing "R2_zero", "MAE" and "RMSE".
+        All values are NaN if raw_df is empty or if Kb or Kt is NaN.
+    """
     if (
         raw_df.empty
         or np.isnan(Kb)
@@ -308,6 +383,9 @@ def compute_global_parameters(df, max_vividness=None):
     df : pandas.DataFrame
         Trial-level processed data.
 
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
+        
     Returns
     -------
     dict
@@ -371,6 +449,35 @@ def compute_global_parameters(df, max_vividness=None):
 def get_model_predictions(raw_df, Kb, Kt, max_vividness=None):
     """
     Return trial-level predictions and weights for an already-defined model.
+
+    Parameters
+    ----------
+    raw_df : pandas.DataFrame
+        Trial-level data containing the columns "angle_deg",
+        "pattern_pair", "duration" and "vividness".
+
+    Kb : float
+        Biceps model parameter.
+
+    Kt : float
+        Triceps model parameter.
+
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
+
+    Returns
+    -------
+    y_true : np.ndarray
+        Observed angles.
+
+    y_pred : np.ndarray
+        Predicted angles.
+
+    weights : np.ndarray
+        Sample weights.
+
+        If raw_df is empty or if Kb or Kt is NaN, three empty arrays
+        are returned.
     """
 
     if raw_df.empty or np.isnan(Kb) or np.isnan(Kt):

@@ -1,3 +1,5 @@
+# core/excels/model_fitting_results.py
+
 import numpy as np
 import pandas as pd
 
@@ -34,6 +36,8 @@ def build_parameters_table(results):
     """
     Build the parameter-estimate table for all fitted models.
 
+    Models whose fit failed are skipped.
+
     Columns
     -------
     Model
@@ -42,6 +46,17 @@ def build_parameters_table(results):
     SE
     CI_lower
     CI_upper
+
+    Parameters
+    ----------
+    results : dict
+        Results returned by model_fitting.fit_models().
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per model × parameter, with the estimate, its standard
+        error and its 95% confidence interval.
     """
 
     rows = []
@@ -104,13 +119,28 @@ def build_performance_table(results):
     """
     Build the model-performance table.
 
+    Models whose fit failed are skipped. Delta_AIC is computed relative
+    to the lowest finite AIC among the fitted models.
+
     Columns
     -------
     Model
     R2
     AIC
     Delta_AIC
+
+    Parameters
+    ----------
+    results : dict
+        Results returned by model_fitting.fit_models().
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per model, with R² (referenced to the mean), AIC and
+        Delta_AIC.
     """
+
 
     rows = []
 
@@ -168,6 +198,28 @@ def build_saturation_table(
     """
     Build the saturation-information table.
 
+    Saturation is computed for the AIC-selected model. If Kb and Kt are
+    not provided, the saturation points are still reported but the
+    equivalent stimulation durations are set to NaN. If the selected
+    model has no saturation (linear), a single row with NaN values
+    is returned for each threshold.
+
+    Columns
+    -------
+    Model
+    Threshold
+    Side
+    X_ideal_deg
+    Y_real_deg
+    Duration_ideal_s
+    Duration_real_s
+
+    Notes
+    -----
+    X_ideal_deg corresponds to the ideal/input angle of the fitted model.
+    Y_real_deg corresponds to the real/model-predicted angle.
+    The two corresponding stimulation durations are calculated separately.
+
     Parameters
     ----------
     results : dict
@@ -181,27 +233,16 @@ def build_saturation_table(
         Triceps coefficient used to convert angles into
         equivalent stimulation durations.
 
-    threshold : float or sequence
-        Saturation threshold(s).
-
-        Examples:
-            0.95
-            [0.85, 0.90, 0.95]
+    threshold : float or iterable of float, optional
+        Saturation threshold(s), e.g. 0.95 or [0.85, 0.90, 0.95].
+        Defaults to cfg.SATURATION_THRESHOLDS_SENSITIVITY.
 
     Returns
     -------
     pandas.DataFrame
-
-    Notes
-    -----
-    x_sat corresponds to the ideal/input angle of the
-    fitted model.
-
-    y_sat corresponds to the real/model-predicted angle.
-
-    The two corresponding stimulation durations are
-    calculated separately.
+        One row per threshold × side (Biceps, Triceps).
     """
+
 
     best_model_name = None
 
@@ -379,17 +420,40 @@ def save_model_fitting_results(
     """
     Save model-fitting results to an Excel workbook.
 
-    Sheets
-    ------
+    The workbook contains three sheets:
+
+        Parameters
+            Model parameter estimates, SEs and 95% CIs.
+        Performance
+            R², AIC and Delta-AIC.
+        Saturation
+            Saturation points and equivalent stimulation
+            durations for the configured threshold(s).
+
     Parameters
-        Model parameter estimates, SEs and 95% CIs.
+    ----------
+    results : dict
+        Results returned by model_fitting.fit_models().
 
-    Performance
-        R², AIC and Delta-AIC.
+    output_path : str or Path
+        Path of the Excel file to create.
 
-    Saturation
-        Saturation points and equivalent stimulation
-        durations for the configured threshold(s).
+    Kb : float, optional
+        Biceps coefficient used to convert angles into
+        equivalent stimulation durations.
+
+    Kt : float, optional
+        Triceps coefficient used to convert angles into
+        equivalent stimulation durations.
+
+    threshold : float or iterable of float, optional
+        Saturation threshold(s).
+        Defaults to cfg.SATURATION_THRESHOLDS_SENSITIVITY.
+
+    Returns
+    -------
+    str or Path
+        The path of the saved file (same as output_path).
     """
 
     parameters_df = build_parameters_table(

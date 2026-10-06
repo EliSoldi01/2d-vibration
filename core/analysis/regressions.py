@@ -1,3 +1,5 @@
+# core/analysis/regressions.py
+
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
@@ -86,7 +88,22 @@ def _get_weights(df, max_vividness=None):
         weight = vividness / max_vividness
 
     Otherwise, None is returned.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Data containing the "vividness" column.
+
+    max_vividness : float, optional
+        Value used to normalize vividness scores. Required when
+        cfg.USE_VIVIDNESS_WEIGHTS is True.
+
+    Returns
+    -------
+    np.ndarray or None
+        Array of weights, or None if vividness weighting is disabled.
     """
+
     if not cfg.USE_VIVIDNESS_WEIGHTS:
         return None
 
@@ -115,11 +132,14 @@ def regression_summary(df, x_col, y_col, group_col=None, max_vividness=None):
         Name of the dependent-variable column.
     group_col : str, optional
         Column used to divide the data into separate regressions.
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
 
     Returns
     -------
     dict or list of dict
-        Regression result, or one result per group.
+        Regression result, or one result per group. In the grouped case,
+        each result also contains the group value under the key group_col.
     """
     if group_col is None:
         weights = _get_weights(df, max_vividness=max_vividness)
@@ -143,10 +163,17 @@ def aggregate_subject_means(df):
     """
     Average repetitions for each subject × pattern × duration.
 
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Trial-level data containing the columns "subject", "pattern_pair",
+        "duration", "angle_deg" and "vividness".
+
     Returns
     -------
     pandas.DataFrame
-        One row per subject × pattern × duration.
+        One row per subject × pattern × duration, with the mean
+        "angle_deg" and "vividness".
     """
     return (
         df.groupby(["subject", "pattern_pair", "duration"], as_index=False)
@@ -185,7 +212,19 @@ def aggregate_global_means(df):
 # ============================================================
 
 def _print_regression_result(pattern, analysis_name, result):
-    """Print a regression result in a consistent format."""
+    """
+    Print a regression result in a consistent format.
+
+    Parameters
+    ----------
+    pattern : str
+        Pattern the regression refers to.
+    analysis_name : str
+        Description of the analysis, printed as a header.
+    result : dict or None
+        Regression result as returned by fit_linear_regression.
+        If None, a "No result." message is printed.
+    """
     if result is None:
         print(f"\nPattern: {pattern}\n  {analysis_name}\n  No result.")
         return
@@ -224,12 +263,16 @@ def run_global_regression(df, patterns, x_col, y_col, analysis_name, max_vividne
         Name of the dependent-variable column.
     analysis_name : str
         Description used when printing results.
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
 
     Returns
     -------
     dict
-        Dictionary mapping each pattern to its regression result.
+        Dictionary mapping each pattern to its regression result, or to
+        None if no data are available for that pattern.
     """
+
     df_subject = aggregate_subject_means(df)
     df_global = aggregate_global_means(df_subject)
     results = {}
@@ -271,12 +314,15 @@ def run_subject_regression(df, patterns, x_col, y_col, max_vividness=None):
         Name of the independent-variable column.
     y_col : str
         Name of the dependent-variable column.
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
 
     Returns
     -------
     dict
         Dictionary mapping each pattern to a list of subject-level
-        regression results.
+        regression results (an empty list if no data are available
+        for that pattern).
     """
     df_subject = aggregate_subject_means(df)
     results = {}
@@ -322,11 +368,14 @@ def run_trial_regression(df, patterns, x_col, y_col, analysis_name, max_vividnes
         Name of the dependent-variable column.
     analysis_name : str
         Description used when printing results.
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
 
     Returns
     -------
     dict
-        Dictionary mapping each pattern to its regression result.
+        Dictionary mapping each pattern to its regression result, or to
+        None if no data are available for that pattern.
     """
     results = {}
 
@@ -353,23 +402,38 @@ def run_regression_analysis(df, protocol, group_level=True, subject_level=True, 
     """
     Run the selected regression analyses and prepare data for plotting.
 
+    Patterns are taken from cfg.PATTERNS_TO_PROCESS. If it is None, all
+    patterns found in df["pattern_pair"] are used.
+
     Parameters
     ----------
     df : pandas.DataFrame
         Trial-level input data.
     protocol : dict
-        Protocol information.
+        Protocol information (currently unused).
     group_level : bool, optional
-        Whether to run group-level regressions.
+        Whether to run group-level regressions (angle vs duration,
+        vividness vs duration, angle vs vividness).
     subject_level : bool, optional
-        Whether to run subject-level regressions.
+        Whether to run subject-level regressions (same three analyses).
     trial_level : bool, optional
-        Whether to run trial-level regressions.
+        Whether to run trial-level regressions (angle vs duration).
+    max_vividness : float, optional
+        Value used to normalize vividness scores when computing weights.
 
     Returns
     -------
     dict
-        Dictionary containing regression results and data for plotting.
+        Dictionary containing:
+
+        results
+            Regression results, organized by level ("group_level",
+            "subject_level", "trial_level") and then by analysis name.
+        plot_data
+            Data needed for plotting, organized by level:
+            subject and group means for the group level, subject means
+            for the subject level, and the trial data for the trial level.
+            Levels that were not run are left empty.
     """
 
     patterns = cfg.PATTERNS_TO_PROCESS

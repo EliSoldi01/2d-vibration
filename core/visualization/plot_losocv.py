@@ -2,12 +2,51 @@ import matplotlib.pyplot as plt
 
 
 def plot_loso_performance(results, output_path=None):
-    """Plot individual and pooled LOSO performance for all and complex patterns."""
+    """
+    Plot individual and pooled LOSO performance for all and complex patterns.
 
+    Each panel shows R²_zero against MAE for every held-out subject
+    (blue points, annotated with the subject ID) and for the pooled
+    performance (red diamond), with a dashed reference line at R² = 0.
+
+    If output_path is provided, three figures are saved:
+
+        - a combined figure with both panels (at output_path);
+        - "loso_performance_all_patterns.png" and
+        "loso_performance_complex_patterns.png", one panel each,
+        in the folder of output_path.
+
+    Parameters
+    ----------
+    results : dict
+        LOSO cross-validation results, as returned by
+        run_leave_one_subject_out_cross_validation.
+
+    output_path : pathlib.Path, optional
+        Path of the combined figure. If None, no figure is saved.
+
+    Returns
+    -------
+    None
+    """
     plt.rcParams["font.family"] = "Times New Roman"
-    
+
     def plot_panel(ax, pattern_type):
-        """Plot LOSO performance for a single pattern type."""
+        """
+        Plot LOSO performance for a single pattern type.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            Axes where the panel is drawn.
+
+        pattern_type : str
+            Pattern type to plot, "all_patterns" or "complex_patterns".
+
+        Returns
+        -------
+        None
+        """
 
         pattern_results = results[pattern_type]["subjects_results"]
         pooled_point = results[pattern_type]["pooled"]

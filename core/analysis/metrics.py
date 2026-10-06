@@ -1,8 +1,39 @@
+#core/analysis/metrics.py
+
 import numpy as np
 
 
 def compute_r2_metrics(y_true, y_pred, weights=None):
-    """Compute R² metrics with reference to zero and mean, optionally using weights."""
+    """
+    Compute R² metrics with reference to zero and mean, optionally using weights.
+
+    R²_zero uses the weighted sum of squares of y_true as the baseline
+    (1 - SSE / sum(w * y_true²)), which suits models constrained through
+    the origin. R²_mean uses the weighted variance around the weighted mean
+    of y_true as the baseline.
+
+    Parameters
+    ----------
+    y_true : array-like
+        Observed values.
+
+    y_pred : array-like
+        Predicted values.
+
+    weights : array-like, optional
+        Sample weights. If None, all samples receive equal weight.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        R2_zero
+            R² referenced to zero. NaN if the baseline sum of squares is zero.
+        R2_mean
+            R² referenced to the weighted mean. NaN if the baseline sum of
+            squares is zero.
+    """
 
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
